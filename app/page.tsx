@@ -2,6 +2,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Search, CalendarDays } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -59,6 +60,7 @@ const MOCK_LISTINGS: Listing[] = [
 ];
 
 export default function Home() {
+  const router = useRouter();
   const [dateRange, setDateRange] = useState<{
     from: Date | undefined;
     to: Date | undefined;
@@ -66,6 +68,19 @@ export default function Home() {
     from: undefined,
     to: undefined,
   });
+
+  const handleSearch = () => {
+    const params = new URLSearchParams();
+    
+    if (dateRange.from) {
+      params.append('fromDate', dateRange.from.toISOString());
+    }
+    if (dateRange.to) {
+      params.append('toDate', dateRange.to.toISOString());
+    }
+    
+    router.push(`/explore?${params.toString()}`);
+  };
 
   return (
     <main className="min-h-screen bg-background">
@@ -109,7 +124,7 @@ export default function Home() {
                   )}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+                  <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
                   initialFocus
                   mode="range"
@@ -120,7 +135,7 @@ export default function Home() {
                 />
               </PopoverContent>
             </Popover>
-            <Button size="lg">
+            <Button size="lg" onClick={handleSearch}>
               <Search className="mr-2 h-4 w-4" />
               Search
             </Button>

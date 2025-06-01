@@ -96,7 +96,7 @@ export default function HostProfilePage() {
         </div>
         
         {/* Host Listings */}
-        <h2 className="text-3xl font-bold mb-6">{host.name}'s Listings</h2>
+        <h2 className="text-3xl font-bold mb-6">{host.name}&apos;s Listings</h2>
         {hostListings.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {hostListings.map(listing => (

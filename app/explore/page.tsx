@@ -66,6 +66,16 @@ export default function ExplorePage() {
   useEffect(() => {
     const location = searchParams.get('location');
     if (location) setSearchQuery(location);
+    
+    const fromDate = searchParams.get('fromDate');
+    const toDate = searchParams.get('toDate');
+    
+    if (fromDate && toDate) {
+      setDateRange({
+        from: new Date(fromDate),
+        to: new Date(toDate)
+      });
+    }
   }, [searchParams]);
   
   // Filter listings based on all criteria
@@ -151,9 +161,7 @@ export default function ExplorePage() {
                   mode="range"
                   defaultMonth={dateRange.from}
                   selected={dateRange}
-                  onSelect={(range) => {
-                    if (range) setDateRange(range);
-                  }}
+                  onSelect={setDateRange}
                   numberOfMonths={2}
                 />
               </PopoverContent>
