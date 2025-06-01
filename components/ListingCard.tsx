@@ -1,33 +1,29 @@
-'use client';
-
+import Link from 'next/link';
+import Image from 'next/image';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Listing } from '@/app/types';
 import { MapPin, PenTool as Token } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 
 interface ListingCardProps {
   listing: Listing;
 }
 
 export default function ListingCard({ listing }: ListingCardProps) {
-  const router = useRouter();
-
-  const handleBookNow = () => {
-    router.push(`/listing/${listing.id}`);
-  };
-
   return (
     <Card className="overflow-hidden">
-      <div className="relative aspect-video overflow-hidden">
-        <img
-          src={listing.images[0]}
-          alt={listing.title}
-          className="object-cover w-full h-full transition-transform hover:scale-105 cursor-pointer"
-          onClick={handleBookNow}
-        />
-      </div>
+      <Link href={`/listing/${listing.id}`}>
+        <div className="relative aspect-video overflow-hidden">
+          <Image
+            src={listing.images[0]}
+            alt={listing.title}
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="object-cover transition-transform hover:scale-105"
+          />
+        </div>
+      </Link>
       <CardHeader>
         <div className="flex items-start justify-between">
           <div>
@@ -72,7 +68,9 @@ export default function ListingCard({ listing }: ListingCardProps) {
             <p className="text-muted-foreground">{listing.host.tokens} tokens earned</p>
           </div>
         </div>
-        <Button onClick={handleBookNow}>Book Now</Button>
+        <Link href={`/listing/${listing.id}`}>
+          <Button>View Details</Button>
+        </Link>
       </CardFooter>
     </Card>
   );
