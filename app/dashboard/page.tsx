@@ -3,14 +3,17 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Home, Calendar, User, PenTool, LayoutDashboard } from 'lucide-react';
+import { MOCK_USERS } from '@/app/mock-data';
 
-// For demo purposes, we'll use hardcoded data
-// In a real app, you would fetch this from the server
+// Use Sarah Johnson (user1) as the default user
+const defaultUser = MOCK_USERS[0];
+
+// Use data from mock data
 const userData = {
-  name: 'John Doe',
-  tokens: 250,
-  listingsCount: 3,
-  bookingsCount: 5,
+  name: defaultUser.name,
+  tokens: defaultUser.tokens,
+  listingsCount: 1, // Sarah has one listing in our mock data
+  bookingsCount: 0, // We can assume no bookings yet
 };
 
 function DashboardContent() {

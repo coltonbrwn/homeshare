@@ -23,7 +23,7 @@ async function ProfileContent({ userId }: { userId: string }) {
 
   const listingsCount = user.listings.length;
   const bookingsCount = user.bookings.length;
-  const joinDate = format(new Date(user.joinDate), 'MMMM yyyy');
+  const joinDate = format(new Date(user.createdAt), 'MMMM yyyy');
 
   return (
     <div className="max-w-5xl mx-auto px-4">
@@ -135,9 +135,8 @@ async function ProfileContent({ userId }: { userId: string }) {
 }
 
 export default function ProfilePage() {
-  // In a real app, you would get the user ID from the session
-  // For now, we'll use a hardcoded ID
-  const userId = '101'; // This should match one of the user IDs in your seed data
+  // Use Sarah Johnson (user1) as the default user
+  const userId = 'user1';
   
   return (
     <main className="min-h-screen bg-background py-12">

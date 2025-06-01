@@ -18,6 +18,7 @@ model User {
   tokens    Int       @default(0)
   location  String?
   bio       String?
+  phone     String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   listings  Listing[]

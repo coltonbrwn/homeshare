@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -13,16 +13,22 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Home, Menu, LogIn, LogOut, User, Settings, PenTool, LayoutDashboard } from 'lucide-react';
+import { MOCK_USERS } from '@/app/mock-data';
 
 export function Header() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // Default to logged in with the first user from mock data
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
   const pathname = usePathname();
   
-  // Mock user data - in a real app, this would come from auth context
+  // Use Sarah Johnson (user1) as the default user
+  const defaultUser = MOCK_USERS[0];
+  
+  // User data from mock data
   const user = {
-    name: 'John Doe',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
-    tokens: 250
+    id: defaultUser.id,
+    name: defaultUser.name,
+    avatar: defaultUser.avatar,
+    tokens: defaultUser.tokens
   };
 
   const handleLogin = () => {

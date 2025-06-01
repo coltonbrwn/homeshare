@@ -25,6 +25,7 @@ async function main() {
         tokens: user.tokens,
         location: user.location,
         bio: user.bio,
+        phone: user.phone,
         createdAt: new Date(),
         updatedAt: new Date(),
       },

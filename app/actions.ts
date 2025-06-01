@@ -1,8 +1,8 @@
-'use server'
+'use server';
 
-import { prisma } from '@/lib/prisma';
-import { Listing, User, Booking, Availability } from '@/app/types';
 import { revalidatePath } from 'next/cache';
+import { prisma } from '@/lib/prisma';
+import type { User, Listing, Availability } from '@/app/types';
 
 // Listings
 export async function getListings(): Promise<Listing[]> {
@@ -25,7 +25,7 @@ export async function getListings(): Promise<Listing[]> {
       id: listing.host.id,
       name: listing.host.name,
       avatar: listing.host.avatar || '',
-      tokens: listing.host.tokens,
+      tokens: listing.host.tokens || 0,
     },
     availability: listing.availability.map(avail => ({
       id: avail.id,
@@ -194,11 +194,11 @@ export async function getUserById(id: string): Promise<User | null> {
     name: user.name,
     email: user.email,
     avatar: user.avatar || '',
-    tokens: user.tokens,
+    tokens: user.tokens || 0,
     location: user.location || '',
     bio: user.bio || '',
     phone: user.phone || '',
-    joinDate: user.joinDate.toISOString(),
+    joinDate: user.createdAt.toISOString(),
     listings: user.listings.map(listing => ({
       id: listing.id,
       title: listing.title,
@@ -223,6 +223,7 @@ export async function updateUserProfile(
   }
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    // Update the user in the database
     await prisma.user.update({
       where: { id: userId },
       data: {
@@ -231,10 +232,13 @@ export async function updateUserProfile(
         phone: data.phone,
         location: data.location,
         bio: data.bio,
+        updatedAt: new Date(), // Update the updatedAt timestamp
       },
     });
     
+    // Revalidate the profile page to show the updated data
     revalidatePath('/profile');
+    
     return { success: true };
   } catch (error) {
     console.error('Failed to update profile:', error);

@@ -8,41 +8,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Check, ArrowLeft } from 'lucide-react';
-import { toast } from '@/components/ui/use-toast';
-
-// Action to update user profile
-async function updateProfile(userId: string, data: {
-  name: string;
-  email: string;
-  phone: string | null;
-  location: string | null;
-  bio: string | null;
-}) {
-  'use server';
-  
-  try {
-    const { prisma } = await import('@/lib/prisma');
-    
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        location: data.location,
-        bio: data.bio,
-      },
-    });
-    
-    return { success: true };
-  } catch (error) {
-    console.error('Failed to update profile:', error);
-    return { success: false, error: 'Failed to update profile' };
-  }
-}
+import { useToast } from '@/components/ui/use-toast';
+import { updateUserProfile } from '@/app/actions';
 
 export default function EditProfilePage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userData, setUserData] = useState({
@@ -55,7 +26,7 @@ export default function EditProfilePage() {
   });
 
   // In a real app, you would get the user ID from the session
-  const userId = '101'; // This should match one of the user IDs in your seed data
+  const userId = 'user1'; // Sarah Johnson from our mock data
 
   useEffect(() => {
     async function fetchUserData() {
@@ -85,9 +56,9 @@ export default function EditProfilePage() {
     }
 
     fetchUserData();
-  }, [userId]);
+  }, [userId, toast]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
     setUserData(prev => ({
       ...prev,
@@ -95,12 +66,13 @@ export default function EditProfilePage() {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     
     try {
-      const result = await updateProfile(userId, {
+      // Call the server action to update the profile
+      const result = await updateUserProfile(userId, {
         name: userData.name,
         email: userData.email,
         phone: userData.phone || null,
@@ -113,8 +85,9 @@ export default function EditProfilePage() {
           title: "Profile updated",
           description: "Your profile information has been updated successfully.",
         });
+        
+        // Navigate back to the profile page
         router.push('/profile');
-        router.refresh();
       } else {
         throw new Error(result.error || 'Failed to update profile');
       }
