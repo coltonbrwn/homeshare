@@ -5,12 +5,16 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Home, Calendar, Settings } from 'lucide-react';
-import { getListingById } from '@/app/actions';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, Home, Calendar, Settings, Edit, BookOpen } from 'lucide-react';
+import { getListingById, getBookingsCountForListing } from '@/app/actions';
 import AvailabilityManager from '@/components/AvailabilityManager';
+import AvailabilityCalendar from '@/components/AvailabilityCalendar';
+import ListingEditForm from '@/components/ListingEditForm';
 
 async function ListingManagementContent({ id }: { id: string }) {
   const listing = await getListingById(id);
+  const bookingsCount = await getBookingsCountForListing(id);
   
   if (!listing) {
     notFound();
@@ -18,16 +22,18 @@ async function ListingManagementContent({ id }: { id: string }) {
   
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
-      <Button 
-        variant="ghost" 
-        className="mb-8" 
-        asChild
-      >
-        <Link href="/dashboard/listings">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to My Listings
-        </Link>
-      </Button>
+      <div className="flex justify-between items-start mb-8">
+        <Button 
+          variant="ghost" 
+          className="mb-4" 
+          asChild
+        >
+          <Link href="/dashboard/listings">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to My Listings
+          </Link>
+        </Button>
+      </div>
       
       <div className="flex flex-col md:flex-row gap-8 mb-8">
         <div className="md:w-1/3 h-64 md:h-auto relative rounded-lg overflow-hidden">
@@ -46,7 +52,14 @@ async function ListingManagementContent({ id }: { id: string }) {
             <Home className="h-5 w-5 mr-2" />
             <span className="font-medium">${listing.price} per night</span>
           </div>
-          <p className="text-lg">{listing.description}</p>
+
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/dashboard/bookings">
+              <Calendar className="mr-2 h-4 w-4" />
+              Manage Bookings ({bookingsCount})
+            </Link>
+          </Button>
+
         </div>
       </div>
       
@@ -56,13 +69,13 @@ async function ListingManagementContent({ id }: { id: string }) {
             <Calendar className="h-4 w-4 mr-2" />
             Availability
           </TabsTrigger>
-          <TabsTrigger value="bookings">
+          <TabsTrigger value="calendar">
             <Calendar className="h-4 w-4 mr-2" />
-            Bookings
+            Calendar View
           </TabsTrigger>
-          <TabsTrigger value="settings">
-            <Settings className="h-4 w-4 mr-2" />
-            Settings
+          <TabsTrigger value="edit">
+            <Edit className="h-4 w-4 mr-2" />
+            Edit Listing
           </TabsTrigger>
         </TabsList>
         
@@ -73,24 +86,24 @@ async function ListingManagementContent({ id }: { id: string }) {
           />
         </TabsContent>
         
-        <TabsContent value="bookings" className="mt-6">
+        <TabsContent value="calendar" className="mt-6">
           <Card>
             <CardContent className="pt-6">
-              <p className="text-center py-12 text-muted-foreground">
-                Booking management coming soon
+              <h3 className="text-lg font-medium mb-4">Availability Calendar</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                This calendar shows when your listing is available for booking.
+                Green dates indicate available periods.
               </p>
+              <AvailabilityCalendar 
+                availability={listing.availability}
+                bookings={[]} // We'll pass bookings here if needed
+              />
             </CardContent>
           </Card>
         </TabsContent>
         
-        <TabsContent value="settings" className="mt-6">
-          <Card>
-            <CardContent className="pt-6">
-              <p className="text-center py-12 text-muted-foreground">
-                Listing settings coming soon
-              </p>
-            </CardContent>
-          </Card>
+        <TabsContent value="edit" className="mt-6">
+          <ListingEditForm listing={listing} />
         </TabsContent>
       </Tabs>
     </div>
