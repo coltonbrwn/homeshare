@@ -35,7 +35,7 @@ export function Header() {
 
   return (
     <header className="border-b sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between">
+      <div className="flex h-16 mx-12 items-center justify-between">
         <div className="flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2">
             <Home className="h-5 w-5" />
@@ -59,6 +59,14 @@ export function Header() {
             }`}
           >
             Explore
+          </Link>
+          <Link 
+            href="/community" 
+            className={`text-sm font-medium transition-colors hover:text-primary ${
+              pathname === '/community' ? 'text-primary' : 'text-muted-foreground'
+            }`}
+          >
+            Community
           </Link>
           <Link 
             href="/about" 
