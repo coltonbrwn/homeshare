@@ -5,6 +5,8 @@ CREATE TABLE "User" (
     "email" TEXT NOT NULL,
     "avatar" TEXT,
     "tokens" INTEGER NOT NULL DEFAULT 0,
+    "location" TEXT,
+    "bio" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL
 );
@@ -18,12 +20,21 @@ CREATE TABLE "Listing" (
     "price" INTEGER NOT NULL,
     "images" TEXT NOT NULL,
     "amenities" TEXT NOT NULL,
-    "availableFrom" DATETIME NOT NULL,
-    "availableTo" DATETIME NOT NULL,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
     "hostId" TEXT NOT NULL,
     CONSTRAINT "Listing_hostId_fkey" FOREIGN KEY ("hostId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "Availability" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "startDate" DATETIME NOT NULL,
+    "endDate" DATETIME NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    "listingId" TEXT NOT NULL,
+    CONSTRAINT "Availability_listingId_fkey" FOREIGN KEY ("listingId") REFERENCES "Listing" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable

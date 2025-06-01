@@ -27,6 +27,8 @@ export interface User {
   tokens: number;
   location?: string;
   bio?: string;
+  phone?: string;
+  joinDate: string;
   listings: Listing[];
   bookings: Booking[];
 }

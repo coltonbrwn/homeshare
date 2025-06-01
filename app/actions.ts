@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { Listing, User, Booking, Availability } from '@/app/types';
+import { revalidatePath } from 'next/cache';
 
 // Listings
 export async function getListings(): Promise<Listing[]> {
@@ -174,4 +175,69 @@ export async function removeAvailabilityPeriod(id: string): Promise<void> {
   await prisma.availability.delete({
     where: { id },
   });
+}
+
+// User profile actions
+export async function getUserById(id: string): Promise<User | null> {
+  const user = await prisma.user.findUnique({
+    where: { id },
+    include: {
+      listings: true,
+      bookings: true,
+    },
+  });
+  
+  if (!user) return null;
+  
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    avatar: user.avatar || '',
+    tokens: user.tokens,
+    location: user.location || '',
+    bio: user.bio || '',
+    phone: user.phone || '',
+    joinDate: user.joinDate.toISOString(),
+    listings: user.listings.map(listing => ({
+      id: listing.id,
+      title: listing.title,
+      // We'll fetch full listing details separately when needed
+    })) as any[],
+    bookings: user.bookings.map(booking => ({
+      id: booking.id,
+      listingId: booking.listingId,
+      // We'll fetch full booking details separately when needed
+    })) as any[],
+  };
+}
+
+export async function updateUserProfile(
+  userId: string, 
+  data: {
+    name: string;
+    email: string;
+    phone: string | null;
+    location: string | null;
+    bio: string | null;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        location: data.location,
+        bio: data.bio,
+      },
+    });
+    
+    revalidatePath('/profile');
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to update profile:', error);
+    return { success: false, error: 'Failed to update profile' };
+  }
 }
