@@ -2,19 +2,29 @@
 
 import * as React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { DayPicker } from 'react-day-picker';
+import { DayPicker, DayModifiers } from 'react-day-picker';
 
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 
-export type CalendarProps = React.ComponentProps<typeof DayPicker>;
+export type CalendarProps = React.ComponentProps<typeof DayPicker> & {
+  modifiers?: Record<string, (date: Date) => boolean>;
+  modifiersStyles?: Record<string, React.CSSProperties>;
+};
 
 function Calendar({
   className,
   classNames,
   showOutsideDays = true,
+  modifiers,
+  modifiersStyles,
   ...props
 }: CalendarProps) {
+  // Combine built-in modifiers with custom ones
+  const allModifiers = {
+    ...modifiers,
+  };
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
@@ -57,6 +67,8 @@ function Calendar({
         IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
       }}
+      modifiers={allModifiers}
+      modifiersStyles={modifiersStyles}
       {...props}
     />
   );

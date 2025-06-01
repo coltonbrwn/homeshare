@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarDays } from 'lucide-react';
-import { format, isAfter, isBefore, parseISO, isWithinInterval } from 'date-fns';
+import { format, isAfter, isBefore, parseISO, isWithinInterval, addDays } from 'date-fns';
 
 interface BookingFormProps {
   listingId: string;
@@ -27,22 +27,75 @@ export default function BookingForm({ listingId, availability }: BookingFormProp
     to: undefined,
   });
   
+  // Parse availability dates once
+  const availabilityPeriods = useMemo(() => {
+    return availability.map(period => ({
+      id: period.id,
+      startDate: parseISO(period.startDate),
+      endDate: parseISO(period.endDate),
+    }));
+  }, [availability]);
+  
   // Function to check if a date is available
   const isDateAvailable = (date: Date) => {
     // If no availability periods, nothing is available
-    if (availability.length === 0) return false;
+    if (availabilityPeriods.length === 0) return false;
     
     // Check if the date falls within any availability period
-    return availability.some(period => {
-      const startDate = parseISO(period.startDate);
-      const endDate = parseISO(period.endDate);
-      return isWithinInterval(date, { start: startDate, end: endDate });
-    });
+    return availabilityPeriods.some(period => 
+      isWithinInterval(date, { start: period.startDate, end: period.endDate })
+    );
   };
   
   // Function to disable dates that are not available
   const disableDate = (date: Date) => {
     return !isDateAvailable(date);
+  };
+  
+  // Function to check if a date range is valid (all dates are available)
+  const isRangeValid = (from: Date, to: Date) => {
+    // Check if the entire range falls within a single availability period
+    return availabilityPeriods.some(period => 
+      isAfter(from, period.startDate) && 
+      isBefore(to, period.endDate)
+    );
+  };
+  
+  // Handle date selection with validation
+  const handleDateSelect = (range: { from: Date | undefined; to: Date | undefined }) => {
+    // If clearing the selection or just selecting the start date
+    if (!range.from || !range.to) {
+      setDateRange(range);
+      return;
+    }
+    
+    // Check if the selected range is valid
+    if (isRangeValid(range.from, range.to)) {
+      setDateRange(range);
+    } else {
+      // Find the availability period that contains the start date
+      const containingPeriod = availabilityPeriods.find(period => 
+        isWithinInterval(range.from!, { start: period.startDate, end: period.endDate })
+      );
+      
+      if (containingPeriod) {
+        // Limit the end date to the end of the containing period
+        const limitedEndDate = isBefore(range.to, containingPeriod.endDate) 
+          ? range.to 
+          : containingPeriod.endDate;
+          
+        setDateRange({
+          from: range.from,
+          to: limitedEndDate
+        });
+      } else {
+        // Just set the start date if no containing period found
+        setDateRange({
+          from: range.from,
+          to: undefined
+        });
+      }
+    }
   };
   
   const handleBooking = async () => {
@@ -57,25 +110,37 @@ export default function BookingForm({ listingId, availability }: BookingFormProp
   };
   
   // Get the earliest and latest availability dates for display
-  const earliestDate = availability.length > 0 
-    ? parseISO(availability.reduce((earliest, period) => 
+  const earliestDate = availabilityPeriods.length > 0 
+    ? availabilityPeriods.reduce((earliest, period) => 
         period.startDate < earliest ? period.startDate : earliest, 
-        availability[0].startDate))
+        availabilityPeriods[0].startDate)
     : new Date();
     
-  const latestDate = availability.length > 0
-    ? parseISO(availability.reduce((latest, period) => 
+  const latestDate = availabilityPeriods.length > 0
+    ? availabilityPeriods.reduce((latest, period) => 
         period.endDate > latest ? period.endDate : latest, 
-        availability[0].endDate))
+        availabilityPeriods[0].endDate)
     : new Date();
+  
+  // Custom modifiers for the calendar to highlight availability
+  const modifiers = {
+    available: (date: Date) => isDateAvailable(date),
+    unavailable: (date: Date) => !isDateAvailable(date),
+  };
+  
+  // Custom styles for the calendar
+  const modifiersStyles = {
+    available: { backgroundColor: 'rgba(52, 211, 153, 0.1)' },
+    unavailable: { backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#9CA3AF', textDecoration: 'line-through' },
+  };
   
   return (
     <div className="space-y-4">
       <div className="text-sm text-muted-foreground mb-2">
-        {availability.length > 0 ? (
+        {availabilityPeriods.length > 0 ? (
           <>
             Available from {format(earliestDate, 'MMM d, yyyy')} to {format(latestDate, 'MMM d, yyyy')}
-            {availability.length > 1 && ` (${availability.length} periods)`}
+            {availabilityPeriods.length > 1 && ` (${availabilityPeriods.length} periods)`}
           </>
         ) : (
           <span className="text-destructive">No availability set for this listing</span>
@@ -89,7 +154,7 @@ export default function BookingForm({ listingId, availability }: BookingFormProp
             className={`w-full justify-start text-left font-normal ${
               !dateRange.from && 'text-muted-foreground'
             }`}
-            disabled={availability.length === 0}
+            disabled={availabilityPeriods.length === 0}
           >
             <CalendarDays className="mr-2 h-4 w-4" />
             {dateRange.from ? (
@@ -107,14 +172,28 @@ export default function BookingForm({ listingId, availability }: BookingFormProp
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
+          <div className="p-3 border-b">
+            <div className="flex items-center gap-2 text-sm">
+              <div className="w-3 h-3 rounded-full bg-green-100"></div>
+              <span>Available</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <div className="w-3 h-3 rounded-full bg-red-100"></div>
+              <span>Unavailable</span>
+            </div>
+          </div>
           <Calendar
             initialFocus
             mode="range"
-            defaultMonth={availability.length > 0 ? earliestDate : new Date()}
+            defaultMonth={availabilityPeriods.length > 0 ? earliestDate : new Date()}
             selected={dateRange}
-            onSelect={setDateRange}
+            onSelect={handleDateSelect}
             numberOfMonths={2}
             disabled={disableDate}
+            modifiers={modifiers}
+            modifiersStyles={modifiersStyles}
+            fromDate={earliestDate}
+            toDate={latestDate}
           />
         </PopoverContent>
       </Popover>
@@ -142,7 +221,7 @@ export default function BookingForm({ listingId, availability }: BookingFormProp
         className="w-full" 
         size="lg" 
         onClick={handleBooking}
-        disabled={!dateRange.from || !dateRange.to || availability.length === 0}
+        disabled={!dateRange.from || !dateRange.to || availabilityPeriods.length === 0}
       >
         Book your stay
       </Button>

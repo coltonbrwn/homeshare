@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Home, Menu, LogIn, LogOut, User, Settings, PenTool } from 'lucide-react';
+import { Home, Menu, LogIn, LogOut, User, Settings, PenTool, LayoutDashboard } from 'lucide-react';
 
 export function Header() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -76,6 +76,16 @@ export function Header() {
           >
             About
           </Link>
+          {isLoggedIn && (
+            <Link 
+              href="/dashboard/listings" 
+              className={`text-sm font-medium transition-colors hover:text-primary ${
+                pathname.startsWith('/dashboard') ? 'text-primary' : 'text-muted-foreground'
+              }`}
+            >
+              My Listings
+            </Link>
+          )}
         </nav>
 
         <div className="flex items-center gap-4">
@@ -106,6 +116,18 @@ export function Header() {
                     </div>
                   </div>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard" className="cursor-pointer flex w-full items-center">
+                      <LayoutDashboard className="mr-2 h-4 w-4" />
+                      <span>Dashboard</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/listings" className="cursor-pointer flex w-full items-center">
+                      <Home className="mr-2 h-4 w-4" />
+                      <span>My Listings</span>
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/profile" className="cursor-pointer flex w-full items-center">
                       <User className="mr-2 h-4 w-4" />
@@ -151,8 +173,16 @@ export function Header() {
                 <Link href="/explore" className="cursor-pointer flex w-full">Explore</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
+                <Link href="/community" className="cursor-pointer flex w-full">Community</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
                 <Link href="/about" className="cursor-pointer flex w-full">About</Link>
               </DropdownMenuItem>
+              {isLoggedIn && (
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/listings" className="cursor-pointer flex w-full">My Listings</Link>
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
