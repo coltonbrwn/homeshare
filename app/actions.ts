@@ -317,6 +317,71 @@ export async function updateUserProfile(
   }
 }
 
+// Update listing images
+export async function updateListingImages(data: {
+  id: string;
+  images: string[];
+}): Promise<Listing> {
+  const { userId } = auth();
+
+  if (!userId) {
+    throw new Error('Unauthorized');
+  }
+
+  // Verify that the listing belongs to the current user
+  const existingListing = await prisma.listing.findUnique({
+    where: {
+      id: data.id,
+      hostId: userId,
+    },
+  });
+
+  if (!existingListing) {
+    throw new Error('Listing not found or you do not have permission to update it');
+  }
+
+  // Update the listing images
+  const updatedListing = await prisma.listing.update({
+    where: { id: data.id },
+    data: {
+      images: JSON.stringify(data.images),
+      updatedAt: new Date(),
+    },
+    include: {
+      host: true,
+      availability: true,
+    },
+  });
+
+  // Revalidate the listing page
+  revalidatePath(`/listing/${data.id}`);
+  revalidatePath(`/dashboard/listings/${data.id}`);
+
+  // Format the listing for return
+  return {
+    id: updatedListing.id,
+    title: updatedListing.title,
+    description: updatedListing.description,
+    location: updatedListing.location,
+    price: updatedListing.price,
+    images: JSON.parse(updatedListing.images),
+    amenities: JSON.parse(updatedListing.amenities),
+    host: {
+      id: updatedListing.host.id,
+      name: updatedListing.host.name,
+      avatar: updatedListing.host.avatar || '',
+      tokens: updatedListing.host.tokens || 0,
+    },
+    availability: updatedListing.availability.map(avail => ({
+      id: avail.id,
+      startDate: avail.startDate.toISOString().split('T')[0],
+      endDate: avail.endDate.toISOString().split('T')[0],
+    })),
+    createdAt: updatedListing.createdAt.toISOString(),
+    updatedAt: updatedListing.updatedAt.toISOString(),
+  };
+}
+
 // Update a listing
 export async function updateListing(data: {
   id: string;

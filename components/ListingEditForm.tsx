@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -95,30 +95,15 @@ export default function ListingEditForm({ listing }) {
   
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Edit Listing Details</CardTitle>
-      </CardHeader>
       <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-6">
-          <div className="space-y-4">
+        <CardContent className="space-y-6 pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="title">Listing Title</Label>
               <Input
                 id="title"
                 name="title"
                 value={formData.title}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                name="description"
-                rows={5}
-                value={formData.description}
                 onChange={handleChange}
                 required
               />
@@ -134,26 +119,38 @@ export default function ListingEditForm({ listing }) {
                 required
               />
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="price">Price per Night (in tokens)</Label>
-              <Input
-                id="price"
-                name="price"
-                type="number"
-                min="1"
-                value={formData.price}
-                onChange={handleChange}
-                required
-              />
-            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              name="description"
+              rows={4}
+              value={formData.description}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="price">Price per Night (in tokens)</Label>
+            <Input
+              id="price"
+              name="price"
+              type="number"
+              min="1"
+              value={formData.price}
+              onChange={handleChange}
+              required
+            />
           </div>
           
           <Separator />
           
           <div>
             <Label className="block mb-3">Amenities</Label>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {AMENITIES.map((amenity) => (
                 <div key={amenity.id} className="flex items-center space-x-2">
                   <Checkbox

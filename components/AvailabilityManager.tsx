@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
@@ -11,16 +10,7 @@ import { toast } from 'sonner';
 import { addAvailabilityPeriod, removeAvailabilityPeriod } from '@/app/actions';
 import { cn } from '@/lib/utils';
 
-interface AvailabilityManagerProps {
-  listingId: string;
-  availability: {
-    id: string;
-    startDate: string;
-    endDate: string;
-  }[];
-}
-
-export default function AvailabilityManager({ listingId, availability }: AvailabilityManagerProps) {
+export default function AvailabilityManager({ listingId, availability }) {
   const [isAdding, setIsAdding] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
   const [dateRange, setDateRange] = useState({
@@ -77,110 +67,104 @@ export default function AvailabilityManager({ listingId, availability }: Availab
   };
   
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Manage Availability</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-2">
-          <h3 className="text-lg font-medium">Add New Availability Period</h3>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full sm:w-[300px] justify-start text-left font-normal",
-                    !dateRange.from && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateRange.from ? (
-                    dateRange.to ? (
-                      <>
-                        {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
-                      </>
-                    ) : (
-                      format(dateRange.from, "LLL dd, y")
-                    )
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <h3 className="text-lg font-medium">Add New Availability Period</h3>
+        <div className="flex flex-col sm:flex-row gap-4">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full sm:w-[300px] justify-start text-left font-normal",
+                  !dateRange.from && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateRange.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
+                    </>
                   ) : (
-                    "Select date range"
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  initialFocus
-                  mode="range"
-                  defaultMonth={dateRange.from}
-                  selected={dateRange}
-                  onSelect={setDateRange}
-                  numberOfMonths={2}
-                  disabled={[
-                    { before: new Date() }
-                  ]}
-                />
-              </PopoverContent>
-            </Popover>
-            
-            <Button 
-              onClick={handleAddAvailability} 
-              disabled={!dateRange.from || !dateRange.to || isAdding}
-            >
-              {isAdding ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Adding...
-                </>
-              ) : (
-                <>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Period
-                </>
-              )}
-            </Button>
-          </div>
+                    format(dateRange.from, "LLL dd, y")
+                  )
+                ) : (
+                  "Select date range"
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={dateRange.from}
+                selected={dateRange}
+                onSelect={setDateRange}
+                numberOfMonths={2}
+                disabled={[
+                  { before: new Date() }
+                ]}
+              />
+            </PopoverContent>
+          </Popover>
+          
+          <Button 
+            onClick={handleAddAvailability} 
+            disabled={!dateRange.from || !dateRange.to || isAdding}
+          >
+            {isAdding ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Adding...
+              </>
+            ) : (
+              <>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Period
+              </>
+            )}
+          </Button>
         </div>
-        
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium">Current Availability Periods</h3>
-          {availability.length === 0 ? (
-            <p className="text-muted-foreground">No availability periods set</p>
-          ) : (
-            <div className="space-y-2">
-              {availability.map((period) => (
-                <div 
-                  key={period.id} 
-                  className="flex items-center justify-between p-3 border rounded-md"
-                >
-                  <div>
-                    <span className="font-medium">
-                      {format(new Date(period.startDate), "MMM d, yyyy")}
-                    </span>
-                    <span className="mx-2">to</span>
-                    <span className="font-medium">
-                      {format(new Date(period.endDate), "MMM d, yyyy")}
-                    </span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRemoveAvailability(period.id)}
-                    disabled={isRemoving}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+      </div>
+      
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium">Current Availability Periods</h3>
+        {availability.length === 0 ? (
+          <p className="text-muted-foreground">No availability periods set</p>
+        ) : (
+          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+            {availability.map((period) => (
+              <div 
+                key={period.id} 
+                className="flex items-center justify-between p-3 border rounded-md"
+              >
+                <div>
+                  <span className="font-medium">
+                    {format(new Date(period.startDate), "MMM d, yyyy")}
+                  </span>
+                  <span className="mx-2">to</span>
+                  <span className="font-medium">
+                    {format(new Date(period.endDate), "MMM d, yyyy")}
+                  </span>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </CardContent>
-      <CardFooter className="flex justify-between border-t pt-6">
-        <p className="text-sm text-muted-foreground">
-          Note: Removing an availability period will make your listing unavailable for those dates.
-        </p>
-      </CardFooter>
-    </Card>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleRemoveAvailability(period.id)}
+                  disabled={isRemoving}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      
+      <p className="text-sm text-muted-foreground pt-4 border-t">
+        Note: Removing an availability period will make your listing unavailable for those dates.
+      </p>
+    </div>
   );
 }
