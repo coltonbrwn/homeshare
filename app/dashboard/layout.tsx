@@ -1,16 +1,17 @@
+'use client';
+
 import { ReactNode } from 'react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Calendar, User, Settings, LayoutDashboard } from 'lucide-react';
 
 interface DashboardLayoutProps {
   children: ReactNode;
 }
-
-export default function DashboardLayout({ children }: DashboardLayoutProps) {
+export default function DashboardLayout({ children }: DashboardLayoutProps) {  
   return (
-    <div className="flex min-h-screen flex-col">
-      {children}
+    <div className="flex min-h-screen flex-col md:flex-row">
+      <main className="flex-1 p-4">
+        {children}
+      </main>
     </div>
   );
 }

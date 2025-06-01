@@ -171,7 +171,7 @@ async function ProfileContent() {
               </CardContent>
               <CardFooter>
                 <Button asChild className="w-full">
-                  <Link href="/dashboard/bookings">
+                  <Link href={bookingsCount > 0 ? '/dashboard/bookings' : '/explore'}>
                     {bookingsCount > 0 ? 'View My Bookings' : 'Explore Listings'}
                   </Link>
                 </Button>
