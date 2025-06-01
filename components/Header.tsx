@@ -12,44 +12,27 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Home, Menu, LogIn, LogOut, User, Settings, PenTool, LayoutDashboard } from 'lucide-react';
-import { MOCK_USERS } from '@/app/mock-data';
+import { Home, Menu, User, Settings, PenTool, LayoutDashboard } from 'lucide-react';
+import { useUser, useClerk, SignInButton, SignUpButton } from '@clerk/nextjs';
 
 export function Header() {
-  // Default to logged in with the first user from mock data
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
   const pathname = usePathname();
+  const { user, isSignedIn, isLoaded } = useUser();
+  const { signOut } = useClerk();
   
-  // Use Sarah Johnson (user1) as the default user
-  const defaultUser = MOCK_USERS[0];
-  
-  // User data from mock data
-  const user = {
-    id: defaultUser.id,
-    name: defaultUser.name,
-    avatar: defaultUser.avatar,
-    tokens: defaultUser.tokens
-  };
-
-  const handleLogin = () => {
-    setIsLoggedIn(true);
-  };
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
+  const handleSignOut = () => {
+    signOut();
   };
 
   return (
-    <header className="border-b sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="flex h-16 mx-12 items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Link href="/" className="flex items-center gap-2">
-            <Home className="h-5 w-5" />
-            <span className="font-bold text-xl">HomeShare</span>
-          </Link>
-        </div>
+    <header className="border-b bg-background">
+      <div className="flex h-16 items-center px-4 max-w-7xl mx-auto">
+        <Link href="/" className="flex items-center gap-2 font-semibold">
+          <Home className="h-5 w-5 text-primary" />
+          <span>HomeShare</span>
+        </Link>
 
-        <nav className="hidden md:flex items-center gap-6">
+        <nav className="mx-6 flex items-center space-x-4 lg:space-x-6 hidden md:flex">
           <Link 
             href="/" 
             className={`text-sm font-medium transition-colors hover:text-primary ${
@@ -82,7 +65,7 @@ export function Header() {
           >
             About
           </Link>
-          {isLoggedIn && (
+          {isSignedIn && (
             <Link 
               href="/dashboard/listings" 
               className={`text-sm font-medium transition-colors hover:text-primary ${
@@ -94,31 +77,35 @@ export function Header() {
           )}
         </nav>
 
-        <div className="flex items-center gap-4">
-          {isLoggedIn ? (
+        <div className="flex items-center gap-4 ml-auto">
+          {isLoaded && isSignedIn ? (
             <>
-              <div className="hidden md:flex items-center gap-2">
-                <PenTool className="h-4 w-4 text-primary" />
-                <span className="font-medium">{user.tokens} tokens</span>
-              </div>
+              {user?.publicMetadata?.tokens && (
+                <div className="hidden md:flex items-center gap-2">
+                  <PenTool className="h-4 w-4 text-primary" />
+                  <span className="font-medium">{user.publicMetadata.tokens} tokens</span>
+                </div>
+              )}
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.avatar} alt={user.name} />
-                      <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                      <AvatarImage src={user?.imageUrl} alt={user?.fullName || ''} />
+                      <AvatarFallback>{user?.firstName?.charAt(0) || user?.emailAddresses[0]?.emailAddress?.charAt(0)}</AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <div className="flex items-center justify-start gap-2 p-2">
                     <div className="flex flex-col space-y-1 leading-none">
-                      <p className="font-medium">{user.name}</p>
-                      <p className="text-sm text-muted-foreground flex items-center">
-                        <PenTool className="h-3 w-3 mr-1" />
-                        {user.tokens} tokens
-                      </p>
+                      <p className="font-medium">{user?.fullName || user?.emailAddresses[0]?.emailAddress}</p>
+                      {user?.publicMetadata?.tokens && (
+                        <p className="text-sm text-muted-foreground flex items-center">
+                          <PenTool className="h-3 w-3 mr-1" />
+                          {user.publicMetadata.tokens} tokens
+                        </p>
+                      )}
                     </div>
                   </div>
                   <DropdownMenuSeparator />
@@ -126,12 +113,6 @@ export function Header() {
                     <Link href="/dashboard" className="cursor-pointer flex w-full items-center">
                       <LayoutDashboard className="mr-2 h-4 w-4" />
                       <span>Dashboard</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard/listings" className="cursor-pointer flex w-full items-center">
-                      <Home className="mr-2 h-4 w-4" />
-                      <span>My Listings</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
@@ -147,8 +128,23 @@ export function Header() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
-                    <LogOut className="mr-2 h-4 w-4" />
+                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="mr-2 h-4 w-4"
+                    >
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                      <polyline points="16 17 21 12 16 7"></polyline>
+                      <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
                     <span>Log out</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -156,11 +152,14 @@ export function Header() {
             </>
           ) : (
             <>
-              <Button variant="ghost" size="sm" onClick={handleLogin}>
-                <LogIn className="mr-2 h-4 w-4" />
-                Log in
-              </Button>
-              <Button size="sm">Sign up</Button>
+              <SignInButton>
+                <Button variant="ghost" size="sm">
+                  Sign In
+                </Button>
+              </SignInButton>
+              <SignUpButton>
+                <Button size="sm">Sign Up</Button>
+              </SignUpButton>
             </>
           )}
 
@@ -184,9 +183,9 @@ export function Header() {
               <DropdownMenuItem asChild>
                 <Link href="/about" className="cursor-pointer flex w-full">About</Link>
               </DropdownMenuItem>
-              {isLoggedIn && (
+              {isSignedIn && (
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard/listings" className="cursor-pointer flex w-full">My Listings</Link>
+                  <Link href="/dashboard" className="cursor-pointer flex w-full">Dashboard</Link>
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>

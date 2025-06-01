@@ -1,16 +1,24 @@
 import { Suspense } from 'react';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PenTool, User, MapPin, Mail, Phone, Calendar, Home } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
 import { format } from 'date-fns';
+import { currentUser } from '@clerk/nextjs';
+import Link from 'next/link';
 
 // Server component to fetch user data
-async function ProfileContent({ userId }: { userId: string }) {
+async function ProfileContent() {
+  const clerkUser = await currentUser();
+  
+  if (!clerkUser) {
+    redirect('/sign-in');
+  }
+  
   const user = await prisma.user.findUnique({
-    where: { id: userId },
+    where: { id: clerkUser.id },
     include: {
       listings: true,
       bookings: true,
@@ -59,7 +67,7 @@ async function ProfileContent({ userId }: { userId: string }) {
                 className="w-full" 
                 asChild
               >
-                <a href="/profile/edit">Edit Profile</a>
+                <Link href="/profile/edit">Edit Profile</Link>
               </Button>
             </CardContent>
           </Card>
@@ -128,6 +136,48 @@ async function ProfileContent({ userId }: { userId: string }) {
               </div>
             </CardContent>
           </Card>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">My Listings</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {listingsCount > 0 ? (
+                  <p>{listingsCount} active listings</p>
+                ) : (
+                  <p className="text-muted-foreground">You haven't created any listings yet.</p>
+                )}
+              </CardContent>
+              <CardFooter>
+                <Button asChild className="w-full">
+                  <Link href="/dashboard/listings">
+                    {listingsCount > 0 ? 'View My Listings' : 'Create a Listing'}
+                  </Link>
+                </Button>
+              </CardFooter>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">My Bookings</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {bookingsCount > 0 ? (
+                  <p>{bookingsCount} bookings</p>
+                ) : (
+                  <p className="text-muted-foreground">You haven't made any bookings yet.</p>
+                )}
+              </CardContent>
+              <CardFooter>
+                <Button asChild className="w-full">
+                  <Link href="/dashboard/bookings">
+                    {bookingsCount > 0 ? 'View My Bookings' : 'Explore Listings'}
+                  </Link>
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
         </div>
       </div>
     </div>
@@ -135,13 +185,10 @@ async function ProfileContent({ userId }: { userId: string }) {
 }
 
 export default function ProfilePage() {
-  // Use Sarah Johnson (user1) as the default user
-  const userId = 'user1';
-  
   return (
     <main className="min-h-screen bg-background py-12">
       <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading profile...</div>}>
-        <ProfileContent userId={userId} />
+        <ProfileContent />
       </Suspense>
     </main>
   );

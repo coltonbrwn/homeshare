@@ -2,21 +2,75 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Home, Calendar, User, PenTool, LayoutDashboard } from 'lucide-react';
-import { MOCK_USERS } from '@/app/mock-data';
+import { Home, Calendar, User, PenTool, LayoutDashboard, Loader2 } from 'lucide-react';
+import { prisma } from '@/lib/prisma';
+import { currentUser } from '@clerk/nextjs';
+import { redirect } from 'next/navigation';
 
-// Use Sarah Johnson (user1) as the default user
-const defaultUser = MOCK_USERS[0];
-
-// Use data from mock data
-const userData = {
-  name: defaultUser.name,
-  tokens: defaultUser.tokens,
-  listingsCount: 1, // Sarah has one listing in our mock data
-  bookingsCount: 0, // We can assume no bookings yet
-};
-
-function DashboardContent() {
+async function DashboardContent() {
+  const clerkUser = await currentUser();
+  
+  if (!clerkUser) {
+    redirect('/sign-in');
+  }
+  
+  // Check if user has completed onboarding
+  const hasCompletedOnboarding = clerkUser.unsafeMetadata?.onboardingComplete === true;
+  
+  if (!hasCompletedOnboarding) {
+    redirect('/onboarding');
+  }
+  
+  // Try to find the user in our database
+  let user = await prisma.user.findUnique({
+    where: { id: clerkUser.id },
+    include: {
+      listings: true,
+      bookings: true,
+    },
+  });
+  
+  // If user doesn't exist in our database, create them
+  if (!user) {
+    console.log(`User ${clerkUser.id} not found in database, creating...`);
+    
+    user = await prisma.user.create({
+      data: {
+        id: clerkUser.id,
+        name: clerkUser.firstName && clerkUser.lastName 
+          ? `${clerkUser.firstName} ${clerkUser.lastName}`.trim()
+          : clerkUser.emailAddresses[0].emailAddress.split('@')[0],
+        email: clerkUser.emailAddresses[0].emailAddress,
+        avatar: clerkUser.imageUrl,
+        tokens: 0,
+        bio: '',
+        location: '',
+        phone: '',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      include: {
+        listings: true,
+        bookings: true,
+      },
+    });
+    
+    // Redirect to onboarding since this is a new user
+    redirect('/onboarding');
+  }
+  
+  // Check if user has completed profile (has bio and location)
+  if (!user.bio || !user.location) {
+    redirect('/onboarding');
+  }
+  
+  const userData = {
+    name: user.name,
+    tokens: user.tokens,
+    listingsCount: user.listings.length,
+    bookingsCount: user.bookings.length,
+  };
+  
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
@@ -79,7 +133,7 @@ function DashboardContent() {
           </CardHeader>
           <CardContent>
             <p className="text-lg font-medium">{userData.name}</p>
-            <p className="text-muted-foreground">Host since June 2023</p>
+            <p className="text-muted-foreground">Member since {new Date(user.createdAt).toLocaleDateString()}</p>
           </CardContent>
           <CardFooter>
             <Button asChild className="w-full">
@@ -122,7 +176,7 @@ function DashboardContent() {
         </Button>
         
         <Button asChild variant="outline" className="h-auto py-4 justify-start">
-          <Link href="/settings" className="flex flex-col items-start">
+          <Link href="/profile/edit" className="flex flex-col items-start">
             <span className="flex items-center gap-2 mb-1">
               <User className="h-4 w-4" />
               Update Profile
@@ -138,7 +192,12 @@ function DashboardContent() {
 export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-background">
-      <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading dashboard...</div>}>
+      <Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" />
+          <span>Loading dashboard...</span>
+        </div>
+      }>
         <DashboardContent />
       </Suspense>
     </main>
