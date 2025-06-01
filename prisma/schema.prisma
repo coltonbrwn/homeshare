@@ -16,6 +16,8 @@ model User {
   email     String    @unique
   avatar    String?
   tokens    Int       @default(0)
+  location  String?
+  bio       String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   listings  Listing[]
@@ -23,20 +25,29 @@ model User {
 }
 
 model Listing {
-  id          String    @id @default(cuid())
+  id          String           @id @default(cuid())
   title       String
   description String
   location    String
   price       Int
-  images      String    // Stored as JSON string
-  amenities   String    // Stored as JSON string
-  availableFrom DateTime
-  availableTo   DateTime
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  images      String           // Stored as JSON string
+  amenities   String           // Stored as JSON string
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
   hostId      String
-  host        User      @relation(fields: [hostId], references: [id])
+  host        User             @relation(fields: [hostId], references: [id])
   bookings    Booking[]
+  availability Availability[]
+}
+
+model Availability {
+  id        String   @id @default(cuid())
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
 }
 
 model Booking {

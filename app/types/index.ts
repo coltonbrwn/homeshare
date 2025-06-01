@@ -12,10 +12,11 @@ export interface Listing {
     avatar: string;
     tokens: number;
   };
-  available: {
-    from: string;
-    to: string;
-  };
+  availability: {
+    id: string;
+    startDate: string;
+    endDate: string;
+  }[];
 }
 
 export interface User {
@@ -24,6 +25,8 @@ export interface User {
   email: string;
   avatar: string;
   tokens: number;
+  location?: string;
+  bio?: string;
   listings: Listing[];
   bookings: Booking[];
 }
@@ -36,4 +39,11 @@ export interface Booking {
   checkOut: string;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
   tokensEarned: number;
+}
+
+export interface Availability {
+  id: string;
+  startDate: string;
+  endDate: string;
+  listingId: string;
 }

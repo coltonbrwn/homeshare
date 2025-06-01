@@ -1,13 +1,14 @@
 'use server'
 
 import { prisma } from '@/lib/prisma';
-import { Listing, User, Booking } from '@/app/types';
+import { Listing, User, Booking, Availability } from '@/app/types';
 
 // Listings
 export async function getListings(): Promise<Listing[]> {
   const listings = await prisma.listing.findMany({
     include: {
       host: true,
+      availability: true,
     },
   });
   
@@ -25,10 +26,11 @@ export async function getListings(): Promise<Listing[]> {
       avatar: listing.host.avatar || '',
       tokens: listing.host.tokens,
     },
-    available: {
-      from: listing.availableFrom.toISOString().split('T')[0],
-      to: listing.availableTo.toISOString().split('T')[0],
-    },
+    availability: listing.availability.map(avail => ({
+      id: avail.id,
+      startDate: avail.startDate.toISOString().split('T')[0],
+      endDate: avail.endDate.toISOString().split('T')[0],
+    })),
   }));
 }
 
@@ -37,6 +39,7 @@ export async function getListingById(id: string): Promise<Listing | null> {
     where: { id },
     include: {
       host: true,
+      availability: true,
     },
   });
   
@@ -56,10 +59,11 @@ export async function getListingById(id: string): Promise<Listing | null> {
       avatar: listing.host.avatar || '',
       tokens: listing.host.tokens,
     },
-    available: {
-      from: listing.availableFrom.toISOString().split('T')[0],
-      to: listing.availableTo.toISOString().split('T')[0],
-    },
+    availability: listing.availability.map(avail => ({
+      id: avail.id,
+      startDate: avail.startDate.toISOString().split('T')[0],
+      endDate: avail.endDate.toISOString().split('T')[0],
+    })),
   };
 }
 
@@ -118,6 +122,7 @@ export async function getListingsByHostId(hostId: string): Promise<Listing[]> {
     where: { hostId },
     include: {
       host: true,
+      availability: true,
     },
   });
   
@@ -135,9 +140,38 @@ export async function getListingsByHostId(hostId: string): Promise<Listing[]> {
       avatar: listing.host.avatar || '',
       tokens: listing.host.tokens,
     },
-    available: {
-      from: listing.availableFrom.toISOString().split('T')[0],
-      to: listing.availableTo.toISOString().split('T')[0],
-    },
+    availability: listing.availability.map(avail => ({
+      id: avail.id,
+      startDate: avail.startDate.toISOString().split('T')[0],
+      endDate: avail.endDate.toISOString().split('T')[0],
+    })),
   }));
+}
+
+// Add a new function to manage availability
+export async function addAvailabilityPeriod(data: {
+  listingId: string;
+  startDate: string;
+  endDate: string;
+}): Promise<Availability> {
+  const availability = await prisma.availability.create({
+    data: {
+      listingId: data.listingId,
+      startDate: new Date(data.startDate),
+      endDate: new Date(data.endDate),
+    },
+  });
+  
+  return {
+    id: availability.id,
+    startDate: availability.startDate.toISOString().split('T')[0],
+    endDate: availability.endDate.toISOString().split('T')[0],
+    listingId: availability.listingId,
+  };
+}
+
+export async function removeAvailabilityPeriod(id: string): Promise<void> {
+  await prisma.availability.delete({
+    where: { id },
+  });
 }

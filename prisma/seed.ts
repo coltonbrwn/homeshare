@@ -7,6 +7,7 @@ async function main() {
   console.log('Starting database seed...');
 
   // Clear existing data
+  await prisma.availability.deleteMany();
   await prisma.booking.deleteMany();
   await prisma.listing.deleteMany();
   await prisma.user.deleteMany();
@@ -20,13 +21,15 @@ async function main() {
         email: `${host.name.toLowerCase().replace(' ', '.')}@example.com`,
         avatar: host.avatar,
         tokens: host.tokens,
+        location: host.location || undefined,
+        bio: host.bio || undefined,
       },
     });
   }
 
   // Create listings
   for (const listing of MOCK_LISTINGS) {
-    await prisma.listing.create({
+    const createdListing = await prisma.listing.create({
       data: {
         id: listing.id,
         title: listing.title,
@@ -35,9 +38,16 @@ async function main() {
         price: listing.price,
         images: JSON.stringify(listing.images),
         amenities: JSON.stringify(listing.amenities),
-        availableFrom: new Date(listing.available.from),
-        availableTo: new Date(listing.available.to),
         hostId: listing.host.id,
+      },
+    });
+
+    // Create availability periods
+    await prisma.availability.create({
+      data: {
+        listingId: createdListing.id,
+        startDate: new Date(listing.available.from),
+        endDate: new Date(listing.available.to),
       },
     });
   }

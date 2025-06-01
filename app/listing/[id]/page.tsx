@@ -111,8 +111,7 @@ async function ListingContent({ id }: { id: string }) {
             <CardContent>
               <BookingForm 
                 listingId={listing.id} 
-                availableFrom={listing.available.from} 
-                availableTo={listing.available.to} 
+                availability={listing.availability} 
               />
             </CardContent>
           </Card>
