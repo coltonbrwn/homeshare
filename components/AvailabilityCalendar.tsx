@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Calendar } from '@/components/ui/calendar';
-import { addMonths, isWithinInterval, parseISO } from 'date-fns';
+import { isWithinInterval, parseISO } from 'date-fns';
 
 interface AvailabilityCalendarProps {
   availability: {
@@ -72,7 +72,7 @@ export default function AvailabilityCalendar({ availability, bookings }: Availab
           onSelect={() => {}} // Read-only, so no selection
           month={month}
           onMonthChange={setMonth}
-          numberOfMonths={1}
+          numberOfMonths={2}
           modifiers={modifiers}
           modifiersStyles={modifiersStyles}
           disabled={[
@@ -82,43 +82,5 @@ export default function AvailabilityCalendar({ availability, bookings }: Availab
         />
       </div>
     </div>
-  );
-}
-
-function ChevronLeft(props) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <path d="m15 18-6-6 6-6" />
-    </svg>
-  );
-}
-
-function ChevronRight(props) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <path d="m9 18 6-6-6-6" />
-    </svg>
   );
 }
