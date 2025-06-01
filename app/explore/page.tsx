@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,11 +26,11 @@ import {
   Dog, 
   Star, 
   Grid, 
-  Map 
+  Map,
+  Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import ListingCard from '@/components/ListingCard';
-import { MOCK_LISTINGS } from '@/app/mock-data';
 import { Listing } from '@/app/types';
 
 // Extended amenities list
@@ -46,7 +46,13 @@ const ALL_AMENITIES = [
 ];
 
 export default function ExplorePage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
+  
+  // State for listings and loading
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [filteredListings, setFilteredListings] = useState<Listing[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   // State for filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -62,6 +68,27 @@ export default function ExplorePage() {
   const [minRating, setMinRating] = useState(0);
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
   
+  // Fetch listings from the backend
+  useEffect(() => {
+    async function fetchListings() {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/listings');
+        if (!response.ok) throw new Error('Failed to fetch listings');
+        
+        const data = await response.json();
+        setListings(data);
+        setFilteredListings(data);
+      } catch (error) {
+        console.error('Error fetching listings:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    fetchListings();
+  }, []);
+  
   // Apply initial filters from URL if present
   useEffect(() => {
     const location = searchParams.get('location');
@@ -76,41 +103,117 @@ export default function ExplorePage() {
         to: new Date(toDate)
       });
     }
+    
+    const minPrice = searchParams.get('minPrice');
+    const maxPrice = searchParams.get('maxPrice');
+    if (minPrice && maxPrice) {
+      setPriceRange([parseInt(minPrice), parseInt(maxPrice)]);
+    }
+    
+    const amenities = searchParams.get('amenities');
+    if (amenities) {
+      setSelectedAmenities(amenities.split(','));
+    }
+    
+    const rating = searchParams.get('rating');
+    if (rating) {
+      setMinRating(parseInt(rating));
+    }
   }, [searchParams]);
   
   // Filter listings based on all criteria
-  const filteredListings = MOCK_LISTINGS.filter(listing => {
-    // Search query filter (location or title)
-    const matchesSearch = 
-      listing.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      listing.title.toLowerCase().includes(searchQuery.toLowerCase());
+  useEffect(() => {
+    if (listings.length === 0) return;
     
-    // Price range filter
-    const matchesPrice = 
-      listing.price >= priceRange[0] && listing.price <= priceRange[1];
+    const filtered = listings.filter(listing => {
+      // Search query filter (location or title)
+      const matchesSearch = 
+        !searchQuery ||
+        listing.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        listing.title.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Price range filter
+      const matchesPrice = 
+        listing.price >= priceRange[0] && listing.price <= priceRange[1];
+      
+      // Amenities filter
+      const matchesAmenities = 
+        selectedAmenities.length === 0 || 
+        selectedAmenities.every(amenityId => {
+          const amenityName = ALL_AMENITIES.find(a => a.id === amenityId)?.name || '';
+          return listing.amenities.includes(amenityName);
+        });
+      
+      // Date range filter
+      let matchesDates = true;
+      if (dateRange.from && dateRange.to && listing.availability) {
+        // Check if any availability period overlaps with the requested dates
+        matchesDates = listing.availability.some(period => {
+          const availableFrom = new Date(period.startDate);
+          const availableTo = new Date(period.endDate);
+          return availableFrom <= dateRange.from! && availableTo >= dateRange.to!;
+        });
+      }
+      
+      // Rating filter (calculate rating based on host tokens)
+      const listingRating = Math.min(5, Math.max(3, listing.host.tokens / 10));
+      const matchesRating = listingRating >= minRating;
+      
+      return matchesSearch && matchesPrice && matchesAmenities && matchesDates && matchesRating;
+    });
     
-    // Amenities filter
-    const matchesAmenities = 
-      selectedAmenities.length === 0 || 
-      selectedAmenities.every(amenity => 
-        listing.amenities.includes(ALL_AMENITIES.find(a => a.id === amenity)?.name || '')
-      );
+    setFilteredListings(filtered);
+  }, [listings, searchQuery, dateRange, priceRange, selectedAmenities, minRating]);
+  
+  // Update URL with filters
+  const updateFiltersInURL = () => {
+    const params = new URLSearchParams();
     
-    // Date range filter (simplified for mock data)
-    let matchesDates = true;
-    if (dateRange.from && dateRange.to) {
-      const availableFrom = new Date(listing.available.from);
-      const availableTo = new Date(listing.available.to);
-      matchesDates = 
-        availableFrom <= dateRange.from && availableTo >= dateRange.to;
+    if (searchQuery) {
+      params.append('location', searchQuery);
     }
     
-    // Rating filter (mock rating based on host tokens for demo)
-    const listingRating = Math.min(5, Math.max(3, listing.host.tokens / 10));
-    const matchesRating = listingRating >= minRating;
+    if (dateRange.from) {
+      params.append('fromDate', dateRange.from.toISOString());
+    }
+    if (dateRange.to) {
+      params.append('toDate', dateRange.to.toISOString());
+    }
     
-    return matchesSearch && matchesPrice && matchesAmenities && matchesDates && matchesRating;
-  });
+    params.append('minPrice', priceRange[0].toString());
+    params.append('maxPrice', priceRange[1].toString());
+    
+    if (selectedAmenities.length > 0) {
+      params.append('amenities', selectedAmenities.join(','));
+    }
+    
+    if (minRating > 0) {
+      params.append('rating', minRating.toString());
+    }
+    
+    // Replace the current URL without refreshing the page
+    const url = `/explore?${params.toString()}`;
+    router.push(url, { scroll: false });
+  };
+  
+  // Debounced filter update
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      updateFiltersInURL();
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [searchQuery, dateRange, priceRange, selectedAmenities, minRating]);
+  
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchQuery('');
+    setDateRange({ from: undefined, to: undefined });
+    setPriceRange([0, 5]);
+    setSelectedAmenities([]);
+    setMinRating(0);
+    router.push('/explore', { scroll: false });
+  };
 
   return (
     <main className="min-h-screen bg-background">
@@ -270,106 +373,104 @@ export default function ExplorePage() {
             <Button 
               variant="ghost" 
               size="sm"
-              onClick={() => {
-                setSearchQuery('');
-                setDateRange({ from: undefined, to: undefined });
-                setPriceRange([0, 5]);
-                setSelectedAmenities([]);
-                setMinRating(0);
-              }}
+              onClick={clearFilters}
             >
               Clear Filters
             </Button>
           </div>
         </div>
         
-        {/* Results Count */}
-        <div className="mb-6">
-          <p className="text-muted-foreground">
-            {filteredListings.length} {filteredListings.length === 1 ? 'home' : 'homes'} found
-          </p>
-        </div>
-        
-        {/* View Modes */}
-        {viewMode === 'grid' ? (
-          /* Grid View */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredListings.map((listing) => (
-              <ListingCard key={listing.id} listing={listing} />
-            ))}
+        {/* Loading State */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2">Loading listings...</span>
           </div>
         ) : (
-          /* Map View */
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Left sidebar with scrollable listings */}
-            <div className="md:col-span-1 h-[calc(100vh-200px)] overflow-y-auto pr-4 space-y-4">
-              {filteredListings.map((listing) => (
-                <Card key={listing.id} className="overflow-hidden">
-                  <div className="flex p-4">
-                    <div className="w-24 h-24 rounded-md overflow-hidden flex-shrink-0 mr-4 relative">
-                      <Image
-                        src={listing.images[0]}
-                        alt={listing.title}
-                        fill
-                        sizes="96px"
-                        style={{ objectFit: 'cover' }}
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-sm line-clamp-1">{listing.title}</h3>
-                      <div className="flex items-center text-xs text-muted-foreground mb-1">
-                        <MapPin className="h-3 w-3 mr-1" />
-                        <span>{listing.location}</span>
-                      </div>
-                      <div className="flex items-center text-xs mb-1">
-                        <Star className="h-3 w-3 text-yellow-500 mr-1" />
-                        <span>{(Math.min(5, Math.max(3, listing.host.tokens / 10))).toFixed(1)}</span>
-                      </div>
-                      <div className="flex items-center text-xs font-medium text-primary">
-                        <PenTool className="h-3 w-3 mr-1" />
-                        <span>{listing.price} tokens/night</span>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
+          <>
+            {/* Results Count */}
+            <div className="mb-6">
+              <p className="text-muted-foreground">
+                {filteredListings.length} {filteredListings.length === 1 ? 'home' : 'homes'} found
+              </p>
             </div>
             
-            {/* Map container */}
-            <div className="md:col-span-2 bg-muted rounded-lg h-[calc(100vh-200px)] flex items-center justify-center">
-              <div className="text-center p-8">
-                <Map className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-xl font-medium mb-2">Map View</h3>
-                <p className="text-muted-foreground max-w-md mx-auto">
-                  This is a placeholder for an interactive map. In a real application, 
-                  this would display an actual map with markers for each listing.
-                </p>
+            {/* View Modes */}
+            {viewMode === 'grid' ? (
+              /* Grid View */
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredListings.map((listing) => (
+                  <ListingCard key={listing.id} listing={listing} />
+                ))}
               </div>
-            </div>
-          </div>
-        )}
-        
-        {/* No Results */}
-        {filteredListings.length === 0 && (
-          <div className="text-center py-12 bg-muted rounded-lg">
-            <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-medium mb-2">No homes found</h3>
-            <p className="text-muted-foreground max-w-md mx-auto">
-              Try adjusting your search filters to find more options.
-            </p>
-            <Button 
-              className="mt-4" 
-              onClick={() => {
-                setSearchQuery('');
-                setDateRange({ from: undefined, to: undefined });
-                setPriceRange([0, 5]);
-                setSelectedAmenities([]);
-                setMinRating(0);
-              }}
-            >
-              Clear All Filters
-            </Button>
-          </div>
+            ) : (
+              /* Map View */
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Left sidebar with scrollable listings */}
+                <div className="md:col-span-1 h-[calc(100vh-200px)] overflow-y-auto pr-4 space-y-4">
+                  {filteredListings.map((listing) => (
+                    <Card key={listing.id} className="overflow-hidden">
+                      <div className="flex p-4">
+                        <div className="w-24 h-24 rounded-md overflow-hidden flex-shrink-0 mr-4 relative">
+                          <Image
+                            src={listing.images[0]}
+                            alt={listing.title}
+                            fill
+                            sizes="96px"
+                            style={{ objectFit: 'cover' }}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-sm line-clamp-1">{listing.title}</h3>
+                          <div className="flex items-center text-xs text-muted-foreground mb-1">
+                            <MapPin className="h-3 w-3 mr-1" />
+                            <span>{listing.location}</span>
+                          </div>
+                          <div className="flex items-center text-xs mb-1">
+                            <Star className="h-3 w-3 text-yellow-500 mr-1" />
+                            <span>{(Math.min(5, Math.max(3, listing.host.tokens / 10))).toFixed(1)}</span>
+                          </div>
+                          <div className="flex items-center text-xs font-medium text-primary">
+                            <PenTool className="h-3 w-3 mr-1" />
+                            <span>{listing.price} tokens/night</span>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+                
+                {/* Map container */}
+                <div className="md:col-span-2 bg-muted rounded-lg h-[calc(100vh-200px)] flex items-center justify-center">
+                  <div className="text-center p-8">
+                    <Map className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-xl font-medium mb-2">Map View</h3>
+                    <p className="text-muted-foreground max-w-md mx-auto">
+                      This is a placeholder for an interactive map. In a real application, 
+                      this would display an actual map with markers for each listing.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* No Results */}
+            {filteredListings.length === 0 && !isLoading && (
+              <div className="text-center py-12 bg-muted rounded-lg">
+                <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-xl font-medium mb-2">No homes found</h3>
+                <p className="text-muted-foreground max-w-md mx-auto">
+                  Try adjusting your search filters to find more options.
+                </p>
+                <Button 
+                  className="mt-4" 
+                  onClick={clearFilters}
+                >
+                  Clear All Filters
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </main>
