@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MapPin, PenTool, Home, ArrowLeft } from 'lucide-react';
+import { MapPin, PenTool, Home, ArrowLeft, Loader2 } from 'lucide-react';
 import { getHostById, getListingsByHostId } from '@/app/actions';
 import ListingCard from '@/components/ListingCard';
 
@@ -104,7 +104,12 @@ async function HostProfileContent({ id }: { id: string }) {
 export default function HostProfilePage({ params }: { params: { id: string } }) {
   return (
     <main className="min-h-screen bg-background">
-      <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading host profile...</div>}>
+      <Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" />
+          <span>Loading host profile...</span>
+        </div>
+      }>
         <HostProfileContent id={params.id} />
       </Suspense>
     </main>

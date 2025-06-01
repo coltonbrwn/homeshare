@@ -80,12 +80,14 @@ export async function getHosts(): Promise<User[]> {
     name: host.name,
     email: host.email,
     avatar: host.avatar || '',
-    tokens: host.tokens,
+    tokens: host.tokens || 0,
+    location: host.location || '',
+    bio: host.bio || '',
+    listingsCount: host.listings.length,
     listings: host.listings.map(listing => ({
       id: listing.id,
       title: listing.title,
-      // We'll fetch full listing details separately when needed
-    })) as any[],
+    })),
     bookings: [], // We'll fetch these separately when needed
   }));
 }
