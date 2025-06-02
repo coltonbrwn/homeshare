@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PenTool, MapPin, Loader2 } from 'lucide-react';
+import { PenTool, MapPin, Loader2, Home } from 'lucide-react';
 import { getHosts } from '@/app/actions';
 import { HostSearch } from '@/components/HostSearch';
 

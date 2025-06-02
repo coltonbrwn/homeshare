@@ -47,9 +47,15 @@ export async function getHosts(): Promise<User[]> {
     include: {
       listings: true,
     },
+    orderBy: {
+      createdAt: 'desc',
+    },
   });
   
-  return hosts.map(host => transformUser(host));
+  return hosts.map(host => ({
+    ...transformUser(host),
+    listingsCount: host.listings.length
+  }));
 }
 
 export async function getHostById(id: string): Promise<User | null> {

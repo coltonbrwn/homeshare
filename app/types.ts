@@ -1,15 +1,16 @@
-export interface User {
+export type User = {
   id: string;
   name: string;
   email: string;
-  avatar?: string;
+  avatar: string;
   tokens: number;
-  location?: string;
-  bio?: string;
-  phone?: string;
+  location: string;
+  bio: string;
+  phone: string;
   createdAt: string;
   updatedAt: string;
-}
+  listingsCount?: number;
+};
 
 export interface Availability {
   id: string;
