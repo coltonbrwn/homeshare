@@ -37,18 +37,7 @@ For a quick deployment, run:
 2. Create a new application or use existing one
 3. Get your API keys from the dashboard
 
-### Step 3: Prepare for Production Database
-
-1. **Switch to PostgreSQL schema for production:**
-   ```bash
-   # Copy the production schema
-   cp prisma/schema.production.prisma prisma/schema.prisma
-   
-   # Generate Prisma client for PostgreSQL
-   npx prisma generate
-   ```
-
-### Step 4: Deploy to Vercel
+### Step 3: Deploy to Vercel
 
 1. **Install Vercel CLI:**
    ```bash
@@ -92,7 +81,7 @@ For a quick deployment, run:
 3. Select events: `user.created`, `user.updated`, `user.deleted`
 4. Copy the webhook secret and add it to Vercel environment variables as `CLERK_WEBHOOK_SECRET`
 
-### Step 6: Initialize Database
+### Step 5: Initialize Database
 
 After deployment, run database migrations:
 
@@ -144,12 +133,17 @@ After deployment, run database migrations:
    - Verify all dependencies are installed
    - Review build logs for specific errors
 
-## Development vs Production
+## Database Setup
 
-- **Development**: Uses SQLite database (file:./dev.db)
-- **Production**: Uses PostgreSQL database
-- **Schema files**: 
-  - `prisma/schema.prisma` - Current schema (SQLite for dev)
-  - `prisma/schema.production.prisma` - PostgreSQL schema for production
+Both development and production use PostgreSQL for consistency:
 
-To switch between environments, copy the appropriate schema file to `prisma/schema.prisma` and run `npx prisma generate`.
+- **Development**: PostgreSQL database (local or cloud)
+- **Production**: PostgreSQL database (cloud)
+- **Schema**: Single `prisma/schema.prisma` file for both environments
+
+### Local Development Database Options
+
+1. **Local PostgreSQL**: Install PostgreSQL locally
+2. **Neon (recommended)**: Free tier with generous limits
+3. **Supabase**: Free tier with additional features
+4. **Railway**: Simple setup with free tier
