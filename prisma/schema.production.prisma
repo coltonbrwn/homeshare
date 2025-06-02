@@ -1,0 +1,95 @@
+// This is your Prisma schema file for PRODUCTION,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @default(cuid())
+  name      String
+  email     String    @unique
+  avatar    String?
+  tokens    Int       @default(100)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  // Relations
+  listings  Listing[]
+  bookings  Booking[]
+  reviews   Review[]
+}
+
+model Listing {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  location    String
+  price       Int      // Price in tokens per night
+  images      String[] // Array of image URLs
+  amenities   String[] // Array of amenities
+  maxGuests   Int      @default(4)
+  bedrooms    Int      @default(1)
+  bathrooms   Int      @default(1)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  hostId       String
+  host         User         @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  bookings     Booking[]
+  reviews      Review[]
+  availability Availability[]
+}
+
+model Availability {
+  id        String   @id @default(cuid())
+  startDate String   // ISO date string
+  endDate   String   // ISO date string
+  createdAt DateTime @default(now())
+  
+  // Relations
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+}
+
+model Booking {
+  id           String   @id @default(cuid())
+  startDate    String   // ISO date string (YYYY-MM-DD)
+  endDate      String   // ISO date string (YYYY-MM-DD)
+  totalPrice   Int      // Total price in tokens
+  status       String   @default("pending") // pending, confirmed, cancelled, completed
+  tokensEarned Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relations
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  reviews   Review[]
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int      // 1-5 stars
+  comment   String?
+  createdAt DateTime @default(now())
+  
+  // Relations
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  bookingId String
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, bookingId]) // One review per user per booking
+}
