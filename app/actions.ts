@@ -485,17 +485,85 @@ export async function getBookingWithDetails(bookingId: string): Promise<BookingW
   return transformBookingWithDetails(booking);
 }
 
-// Create a new booking
-export async function createBooking(data: {
+// Get current user with token balance
+export async function getCurrentUser(): Promise<User | null> {
+  const { userId } = auth();
+
+  if (!userId) {
+    return null;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    return null;
+  }
+
+  return transformUser(user);
+}
+
+// Update user token balance
+export async function updateUserTokens(tokensToAdd: number): Promise<{ success: boolean; newBalance: number; error?: string }> {
+  const { userId } = auth();
+
+  if (!userId) {
+    return { success: false, newBalance: 0, error: 'Unauthorized' };
+  }
+
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        tokens: {
+          increment: tokensToAdd,
+        },
+        updatedAt: new Date(),
+      },
+    });
+
+    // Revalidate relevant pages
+    revalidatePath('/dashboard');
+    revalidatePath('/profile');
+
+    return { success: true, newBalance: updatedUser.tokens };
+  } catch (error) {
+    console.error('Error updating user tokens:', error);
+    return { success: false, newBalance: 0, error: 'Failed to update tokens' };
+  }
+}
+
+// Create a new booking with token validation
+export async function createBookingWithTokenValidation(data: {
   listingId: string;
   startDate: string;
   endDate: string;
   totalPrice: number;
-}): Promise<Booking> {
+}): Promise<{ success: boolean; booking?: Booking; error?: string; insufficientTokens?: boolean; currentTokens?: number }> {
   const { userId } = auth();
 
   if (!userId) {
-    throw new Error('Unauthorized');
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  // Get current user to check token balance
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    return { success: false, error: 'User not found' };
+  }
+
+  // Check if user has enough tokens
+  if (user.tokens < data.totalPrice) {
+    return {
+      success: false,
+      insufficientTokens: true,
+      currentTokens: user.tokens,
+      error: `Insufficient tokens. You have ${user.tokens} tokens but need ${data.totalPrice} tokens.`
+    };
   }
 
   // Verify the listing exists and is available
@@ -508,7 +576,7 @@ export async function createBooking(data: {
   });
 
   if (!listing) {
-    throw new Error('Listing not found');
+    return { success: false, error: 'Listing not found' };
   }
 
   // Check if the dates are available
@@ -538,35 +606,77 @@ export async function createBooking(data: {
   });
 
   if (overlappingBooking) {
-    throw new Error('The selected dates are not available');
+    return { success: false, error: 'The selected dates are not available' };
   }
 
-  // Create the booking
-  const booking = await prisma.booking.create({
-    data: {
-      userId,
-      listingId: data.listingId,
-      checkIn: startDate,
-      checkOut: endDate,
-      tokensEarned: data.totalPrice,
-      status: 'pending',
-    },
-    include: {
-      user: true,
-      listing: {
-        include: {
-          host: true,
-          availability: true,
+  try {
+    // Use a transaction to ensure both operations succeed or fail together
+    const result = await prisma.$transaction(async (tx) => {
+      // Deduct tokens from user
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          tokens: {
+            decrement: data.totalPrice,
+          },
+          updatedAt: new Date(),
         },
-      },
-    },
-  });
+      });
 
-  // Revalidate relevant pages
-  revalidatePath('/dashboard/bookings');
-  revalidatePath(`/dashboard/listings/${data.listingId}`);
+      // Create the booking
+      const booking = await tx.booking.create({
+        data: {
+          userId,
+          listingId: data.listingId,
+          checkIn: startDate,
+          checkOut: endDate,
+          tokensEarned: data.totalPrice,
+          status: 'confirmed', // Set to confirmed since payment is immediate
+        },
+        include: {
+          user: true,
+          listing: {
+            include: {
+              host: true,
+              availability: true,
+            },
+          },
+        },
+      });
 
-  return transformBooking(booking);
+      return { booking, updatedUser };
+    });
+
+    // Revalidate relevant pages
+    revalidatePath('/dashboard/bookings');
+    revalidatePath(`/dashboard/listings/${data.listingId}`);
+    revalidatePath('/dashboard');
+
+    return { success: true, booking: transformBooking(result.booking) };
+  } catch (error) {
+    console.error('Error creating booking:', error);
+    return { success: false, error: 'Failed to create booking' };
+  }
+}
+
+// Legacy function for backward compatibility
+export async function createBooking(data: {
+  listingId: string;
+  startDate: string;
+  endDate: string;
+  totalPrice: number;
+}): Promise<Booking> {
+  const result = await createBookingWithTokenValidation(data);
+
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to create booking');
+  }
+
+  if (!result.booking) {
+    throw new Error('Booking creation failed');
+  }
+
+  return result.booking;
 }
 
 // Update booking status

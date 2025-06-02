@@ -109,9 +109,10 @@ async function ListingContent({ id }: { id: string }) {
               </div>
             </CardHeader>
             <CardContent>
-              <BookingForm 
-                listingId={listing.id} 
-                availability={listing.availability} 
+              <BookingForm
+                listingId={listing.id}
+                listingPrice={listing.price}
+                availability={listing.availability}
               />
             </CardContent>
           </Card>

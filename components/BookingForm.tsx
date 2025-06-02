@@ -1,15 +1,21 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarDays } from 'lucide-react';
-import { format, isAfter, isBefore, parseISO, isWithinInterval, addDays } from 'date-fns';
+import { CalendarDays, PenTool, Loader2 } from 'lucide-react';
+import { format, isAfter, isBefore, parseISO, isWithinInterval, addDays, differenceInDays } from 'date-fns';
+import { DateRange } from 'react-day-picker';
+import { getCurrentUser, createBookingWithTokenValidation } from '@/app/actions';
+import { User } from '@/app/types';
+import { toast } from 'sonner';
+import TokenPurchaseDialog from '@/components/TokenPurchaseDialog';
 
 interface BookingFormProps {
   listingId: string;
+  listingPrice: number;
   availability: {
     id: string;
     startDate: string;
@@ -17,16 +23,34 @@ interface BookingFormProps {
   }[];
 }
 
-export default function BookingForm({ listingId, availability }: BookingFormProps) {
+export default function BookingForm({ listingId, listingPrice, availability }: BookingFormProps) {
   const router = useRouter();
-  const [dateRange, setDateRange] = useState<{
-    from: Date | undefined;
-    to: Date | undefined;
-  }>({
+  const [dateRange, setDateRange] = useState<DateRange>({
     from: undefined,
     to: undefined,
   });
+
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const [isBooking, setIsBooking] = useState(false);
+  const [showTokenDialog, setShowTokenDialog] = useState(false);
   
+  // Load current user data
+  useEffect(() => {
+    async function loadUser() {
+      try {
+        const user = await getCurrentUser();
+        setCurrentUser(user);
+      } catch (error) {
+        console.error('Error loading user:', error);
+      } finally {
+        setIsLoadingUser(false);
+      }
+    }
+
+    loadUser();
+  }, []);
+
   // Parse availability dates once
   const availabilityPeriods = useMemo(() => {
     return availability.map(period => ({
@@ -35,6 +59,18 @@ export default function BookingForm({ listingId, availability }: BookingFormProp
       endDate: parseISO(period.endDate),
     }));
   }, [availability]);
+
+  // Calculate booking details
+  const bookingDetails = useMemo(() => {
+    if (!dateRange.from || !dateRange.to) {
+      return null;
+    }
+
+    const nights = differenceInDays(dateRange.to, dateRange.from);
+    const totalPrice = nights * listingPrice;
+
+    return { nights, totalPrice };
+  }, [dateRange.from, dateRange.to, listingPrice]);
   
   // Function to check if a date is available
   const isDateAvailable = (date: Date) => {
@@ -62,10 +98,10 @@ export default function BookingForm({ listingId, availability }: BookingFormProp
   };
   
   // Handle date selection with validation
-  const handleDateSelect = (range: { from: Date | undefined; to: Date | undefined }) => {
+  const handleDateSelect = (range: DateRange | undefined) => {
     // If clearing the selection or just selecting the start date
-    if (!range.from || !range.to) {
-      setDateRange(range);
+    if (!range || !range.from || !range.to) {
+      setDateRange({ from: range?.from, to: range?.to });
       return;
     }
     
@@ -100,13 +136,52 @@ export default function BookingForm({ listingId, availability }: BookingFormProp
   
   const handleBooking = async () => {
     if (!dateRange.from || !dateRange.to) {
-      alert('Please select check-in and check-out dates');
+      toast.error('Please select check-in and check-out dates');
       return;
     }
-    
-    // In a real app, you would call a server action to create the booking
-    // For now, just redirect to a success page
-    router.push(`/booking/success?listingId=${listingId}&checkIn=${dateRange.from.toISOString()}&checkOut=${dateRange.to.toISOString()}`);
+
+    if (!currentUser) {
+      toast.error('Please sign in to make a booking');
+      return;
+    }
+
+    if (!bookingDetails) {
+      toast.error('Unable to calculate booking details');
+      return;
+    }
+
+    setIsBooking(true);
+
+    try {
+      const result = await createBookingWithTokenValidation({
+        listingId,
+        startDate: dateRange.from.toISOString(),
+        endDate: dateRange.to.toISOString(),
+        totalPrice: bookingDetails.totalPrice,
+      });
+
+      if (result.success && result.booking) {
+        toast.success('Booking created successfully!');
+        router.push(`/booking/success?bookingId=${result.booking.id}`);
+      } else if (result.insufficientTokens) {
+        setShowTokenDialog(true);
+      } else {
+        toast.error(result.error || 'Failed to create booking');
+      }
+    } catch (error) {
+      console.error('Error creating booking:', error);
+      toast.error('Failed to create booking');
+    } finally {
+      setIsBooking(false);
+    }
+  };
+
+  const handleTokenPurchaseComplete = (newBalance: number) => {
+    setCurrentUser(prev => prev ? { ...prev, tokens: newBalance } : null);
+    // Automatically retry booking after token purchase
+    if (bookingDetails && newBalance >= bookingDetails.totalPrice) {
+      handleBooking();
+    }
   };
   
   // Get the earliest and latest availability dates for display
@@ -217,14 +292,58 @@ export default function BookingForm({ listingId, availability }: BookingFormProp
         </div>
       )}
       
-      <Button 
-        className="w-full" 
-        size="lg" 
+      {/* Booking Summary */}
+      {bookingDetails && (
+        <div className="p-3 bg-muted rounded-lg mb-4">
+          <div className="flex justify-between items-center text-sm">
+            <span>Total ({bookingDetails.nights} night{bookingDetails.nights !== 1 ? 's' : ''})</span>
+            <div className="flex items-center gap-1">
+              <PenTool className="h-3 w-3 text-primary" />
+              <span className="font-medium">{bookingDetails.totalPrice} tokens</span>
+            </div>
+          </div>
+          {currentUser && (
+            <div className="flex justify-between items-center text-sm mt-1">
+              <span>Your balance</span>
+              <div className="flex items-center gap-1">
+                <PenTool className="h-3 w-3 text-primary" />
+                <span className={`font-medium ${
+                  currentUser.tokens >= bookingDetails.totalPrice ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {currentUser.tokens} tokens
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <Button
+        className="w-full"
+        size="lg"
         onClick={handleBooking}
-        disabled={!dateRange.from || !dateRange.to || availabilityPeriods.length === 0}
+        disabled={!dateRange.from || !dateRange.to || availabilityPeriods.length === 0 || isBooking || isLoadingUser}
       >
-        Book your stay
+        {isBooking ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Creating booking...
+          </>
+        ) : (
+          'Book your stay'
+        )}
       </Button>
+
+      {/* Token Purchase Dialog */}
+      {showTokenDialog && currentUser && bookingDetails && (
+        <TokenPurchaseDialog
+          open={showTokenDialog}
+          onOpenChange={setShowTokenDialog}
+          currentTokens={currentUser.tokens}
+          requiredTokens={bookingDetails.totalPrice}
+          onPurchaseComplete={handleTokenPurchaseComplete}
+        />
+      )}
     </div>
   );
 }
