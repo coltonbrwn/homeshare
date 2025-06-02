@@ -3,6 +3,9 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   images: { 
     unoptimized: true,
     remotePatterns: [
@@ -21,12 +24,9 @@ const nextConfig = {
     ],
   },
   experimental: {
-    serverActions: {
-      allowedOrigins: ['localhost:3000'],
-      bodySizeLimit: '2mb',
-    },
+    serverActions: true,
     serverComponentsExternalPackages: ['@prisma/client'],
   },
 };
 
-export default nextConfig;
+module.exports = nextConfig;

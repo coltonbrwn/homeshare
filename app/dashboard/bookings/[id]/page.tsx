@@ -1,42 +1,23 @@
 import { Suspense } from 'react';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { 
-  Calendar, MapPin, Home, ArrowLeft, User, 
-  Phone, Mail, Clock, CreditCard, Loader2 
+import {
+  Calendar, MapPin, Home, ArrowLeft, User,
+  Phone, Mail, Clock, CreditCard, Loader2
 } from 'lucide-react';
-import { prisma } from '@/lib/prisma';
-import { currentUser } from '@clerk/nextjs';
 import { format } from 'date-fns';
+import { BookingWithDetails } from '@/app/types';
+import { getBookingWithDetails } from '@/app/actions';
 
 async function BookingDetailContent({ id }: { id: string }) {
-  const clerkUser = await currentUser();
-  
-  if (!clerkUser) {
-    redirect('/sign-in');
-  }
-  
-  // Fetch the booking with related data
-  const booking = await prisma.booking.findUnique({
-    where: { 
-      id,
-      userId: clerkUser.id // Ensure the booking belongs to the current user
-    },
-    include: {
-      listing: {
-        include: {
-          host: true
-        }
-      },
-      user: true
-    }
-  });
-  
+  // Fetch the booking with related data using our type-safe action
+  const booking: BookingWithDetails | null = await getBookingWithDetails(id);
+
   if (!booking) {
     notFound();
   }
@@ -64,7 +45,7 @@ async function BookingDetailContent({ id }: { id: string }) {
         <div className="md:w-2/3">
           <div className="flex justify-between items-start mb-6">
             <h1 className="text-3xl font-bold">{booking.listing.title}</h1>
-            <Badge variant={isPast ? "secondary" : "primary"}>
+            <Badge variant={isPast ? "secondary" : "default"}>
               {isPast ? "Completed" : "Upcoming"}
             </Badge>
           </div>
@@ -145,7 +126,7 @@ async function BookingDetailContent({ id }: { id: string }) {
               </div>
               <p>{booking.listing.description}</p>
               <div className="flex flex-wrap gap-2 mt-4">
-                {booking.listing.amenities.map((amenity, index) => (
+                {booking.listing.amenities.map((amenity: string, index: number) => (
                   <Badge key={index} variant="outline">{amenity}</Badge>
                 ))}
               </div>
@@ -231,7 +212,7 @@ async function BookingDetailContent({ id }: { id: string }) {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Status</span>
-                <Badge variant={isPast ? "secondary" : "primary"}>
+                <Badge variant={isPast ? "secondary" : "default"}>
                   {isPast ? "Completed" : "Confirmed"}
                 </Badge>
               </div>

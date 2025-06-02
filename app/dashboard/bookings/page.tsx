@@ -10,6 +10,8 @@ import { prisma } from '@/lib/prisma';
 import { currentUser } from '@clerk/nextjs';
 import { redirect } from 'next/navigation';
 import { format } from 'date-fns';
+import { Booking } from '@/app/types';
+import { transformBooking } from '@/lib/type-transformers';
 
 async function BookingsContent() {
   const clerkUser = await currentUser();
@@ -23,7 +25,13 @@ async function BookingsContent() {
     include: {
       bookings: {
         include: {
-          listing: true,
+          listing: {
+            include: {
+              host: true,
+              availability: true,
+            }
+          },
+          user: true,
         },
         orderBy: {
           createdAt: 'asc',
@@ -36,10 +44,13 @@ async function BookingsContent() {
     redirect('/onboarding');
   }
   
+  // Transform Prisma bookings to application Booking type
+  const bookings = user.bookings.map(booking => transformBooking(booking));
+  
   // Separate bookings into upcoming and past
   const now = new Date();
-  const upcomingBookings = user.bookings.filter(booking => new Date(booking.endDate) >= now);
-  const pastBookings = user.bookings.filter(booking => new Date(booking.endDate) < now);
+  const upcomingBookings = bookings.filter(booking => new Date(booking.endDate) >= now);
+  const pastBookings = bookings.filter(booking => new Date(booking.endDate) < now);
   
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
@@ -120,7 +131,7 @@ async function BookingsContent() {
   );
 }
 
-function BookingCard({ booking, isPast }) {
+function BookingCard({ booking, isPast }: { booking: Booking; isPast: boolean }) {
   return (
     <Card className="overflow-hidden">
       <div className="h-48 relative">
@@ -131,7 +142,7 @@ function BookingCard({ booking, isPast }) {
           className="object-cover"
         />
         <div className="absolute top-2 right-2">
-          <Badge variant={isPast ? "secondary" : "primary"}>
+          <Badge variant={isPast ? "secondary" : "default"}>
             {isPast ? "Completed" : "Upcoming"}
           </Badge>
         </div>

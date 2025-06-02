@@ -264,7 +264,14 @@ export default function ExplorePage() {
                   mode="range"
                   defaultMonth={dateRange.from}
                   selected={dateRange}
-                  onSelect={setDateRange}
+                  onSelect={(range) => {
+                    if (range) {
+                      setDateRange({
+                        from: range.from,
+                        to: range.to || undefined
+                      });
+                    }
+                  }}
                   numberOfMonths={2}
                 />
               </PopoverContent>

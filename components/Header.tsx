@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -32,15 +31,7 @@ export function Header() {
           <span>HomeShare</span>
         </Link>
 
-        <nav className="mx-6 flex items-center space-x-4 lg:space-x-6 hidden md:flex">
-          <Link 
-            href="/" 
-            className={`text-sm font-medium transition-colors hover:text-primary ${
-              pathname === '/' ? 'text-primary' : 'text-muted-foreground'
-            }`}
-          >
-            Home
-          </Link>
+        <nav className="mx-6 hidden md:flex items-center space-x-4 lg:space-x-6">
           <Link 
             href="/explore" 
             className={`text-sm font-medium transition-colors hover:text-primary ${
@@ -80,7 +71,7 @@ export function Header() {
         <div className="flex items-center gap-4 ml-auto">
           {isLoaded && isSignedIn ? (
             <>
-              {user?.publicMetadata?.tokens && (
+              {user?.publicMetadata?.tokens && typeof user.publicMetadata.tokens === 'number' && (
                 <div className="hidden md:flex items-center gap-2">
                   <PenTool className="h-4 w-4 text-primary" />
                   <span className="font-medium">{user.publicMetadata.tokens} tokens</span>
@@ -100,12 +91,12 @@ export function Header() {
                   <div className="flex items-center justify-start gap-2 p-2">
                     <div className="flex flex-col space-y-1 leading-none">
                       <p className="font-medium">{user?.fullName || user?.emailAddresses[0]?.emailAddress}</p>
-                      {user?.publicMetadata?.tokens && (
+                      {user?.publicMetadata?.tokens && typeof user.publicMetadata.tokens === 'number' ? (
                         <p className="text-sm text-muted-foreground flex items-center">
                           <PenTool className="h-3 w-3 mr-1" />
                           {user.publicMetadata.tokens} tokens
                         </p>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                   <DropdownMenuSeparator />

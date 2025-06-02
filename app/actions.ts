@@ -2,7 +2,15 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import type { User, Listing, Availability } from '@/app/types';
+import type { User, Listing, Availability, Booking, BookingWithDetails } from '@/app/types';
+import {
+  transformUser,
+  transformListing,
+  transformBooking,
+  transformBookingWithDetails,
+  transformAvailability,
+  safeStringifyJSON
+} from '@/lib/type-transformers';
 import { auth } from '@clerk/nextjs';
 
 // Listings
@@ -14,26 +22,7 @@ export async function getListings(): Promise<Listing[]> {
     },
   });
   
-  return listings.map(listing => ({
-    id: listing.id,
-    title: listing.title,
-    description: listing.description,
-    location: listing.location,
-    price: listing.price,
-    images: JSON.parse(listing.images),
-    amenities: JSON.parse(listing.amenities),
-    host: {
-      id: listing.host.id,
-      name: listing.host.name,
-      avatar: listing.host.avatar || '',
-      tokens: listing.host.tokens || 0,
-    },
-    availability: listing.availability.map(avail => ({
-      id: avail.id,
-      startDate: avail.startDate.toISOString().split('T')[0],
-      endDate: avail.endDate.toISOString().split('T')[0],
-    })),
-  }));
+  return listings.map(listing => transformListing(listing));
 }
 
 export async function getListingById(id: string): Promise<Listing | null> {
@@ -47,26 +36,7 @@ export async function getListingById(id: string): Promise<Listing | null> {
   
   if (!listing) return null;
   
-  return {
-    id: listing.id,
-    title: listing.title,
-    description: listing.description,
-    location: listing.location,
-    price: listing.price,
-    images: JSON.parse(listing.images),
-    amenities: JSON.parse(listing.amenities),
-    host: {
-      id: listing.host.id,
-      name: listing.host.name,
-      avatar: listing.host.avatar || '',
-      tokens: listing.host.tokens,
-    },
-    availability: listing.availability.map(avail => ({
-      id: avail.id,
-      startDate: avail.startDate.toISOString().split('T')[0],
-      endDate: avail.endDate.toISOString().split('T')[0],
-    })),
-  };
+  return transformListing(listing);
 }
 
 export async function getHosts(): Promise<User[]> {
@@ -76,21 +46,7 @@ export async function getHosts(): Promise<User[]> {
     },
   });
   
-  return hosts.map(host => ({
-    id: host.id,
-    name: host.name,
-    email: host.email,
-    avatar: host.avatar || '',
-    tokens: host.tokens || 0,
-    location: host.location || '',
-    bio: host.bio || '',
-    listingsCount: host.listings.length,
-    listings: host.listings.map(listing => ({
-      id: listing.id,
-      title: listing.title,
-    })),
-    bookings: [], // We'll fetch these separately when needed
-  }));
+  return hosts.map(host => transformUser(host));
 }
 
 export async function getHostById(id: string): Promise<User | null> {
@@ -107,17 +63,13 @@ export async function getHostById(id: string): Promise<User | null> {
     id: host.id,
     name: host.name,
     email: host.email,
+    createdAt: host.createdAt.toISOString(),
+    updatedAt: host.updatedAt.toISOString(),
     avatar: host.avatar || '',
     tokens: host.tokens,
     location: host.location || 'Location not specified',
     bio: host.bio || '',
-    listingsCount: host.listings.length,
-    listings: host.listings.map(listing => ({
-      id: listing.id,
-      title: listing.title,
-      // We'll fetch full listing details separately when needed
-    })) as any[],
-    bookings: [], // We'll fetch these separately when needed
+    phone: host.phone || ''
   };
 }
 
@@ -130,26 +82,7 @@ export async function getListingsByHostId(hostId: string): Promise<Listing[]> {
     },
   });
   
-  return listings.map(listing => ({
-    id: listing.id,
-    title: listing.title,
-    description: listing.description,
-    location: listing.location,
-    price: listing.price,
-    images: JSON.parse(listing.images),
-    amenities: JSON.parse(listing.amenities),
-    host: {
-      id: listing.host.id,
-      name: listing.host.name,
-      avatar: listing.host.avatar || '',
-      tokens: listing.host.tokens,
-    },
-    availability: listing.availability.map(avail => ({
-      id: avail.id,
-      startDate: avail.startDate.toISOString().split('T')[0],
-      endDate: avail.endDate.toISOString().split('T')[0],
-    })),
-  }));
+  return listings.map(listing => transformListing(listing));
 }
 
 // Add a new function to manage availability
@@ -166,12 +99,7 @@ export async function addAvailabilityPeriod(data: {
     },
   });
   
-  return {
-    id: availability.id,
-    startDate: availability.startDate.toISOString().split('T')[0],
-    endDate: availability.endDate.toISOString().split('T')[0],
-    listingId: availability.listingId,
-  };
+  return transformAvailability(availability);
 }
 
 export async function removeAvailabilityPeriod(id: string): Promise<void> {
@@ -194,7 +122,16 @@ export async function createListing(data: {
   if (!userId) {
     throw new Error('Unauthorized');
   }
-  
+
+  // Check if user already has a listing (limit to 1 per user)
+  const existingListing = await prisma.listing.findFirst({
+    where: { hostId: userId },
+  });
+
+  if (existingListing) {
+    throw new Error('You can only have one listing. Please edit your existing listing instead.');
+  }
+
   // Create the listing
   const listing = await prisma.listing.create({
     data: {
@@ -202,8 +139,8 @@ export async function createListing(data: {
       description: data.description,
       location: data.location,
       price: data.price,
-      amenities: JSON.stringify(data.amenities),
-      images: JSON.stringify(data.images),
+      amenities: safeStringifyJSON(data.amenities),
+      images: safeStringifyJSON(data.images),
       hostId: userId,
     },
   });
@@ -221,31 +158,20 @@ export async function createListing(data: {
     },
   });
   
-  // Format the listing for return
-  return {
-    id: listing.id,
-    title: listing.title,
-    description: listing.description,
-    location: listing.location,
-    price: listing.price,
-    amenities: JSON.parse(listing.amenities),
-    images: JSON.parse(listing.images),
-    hostId: listing.hostId,
-    availability: [{
-      id: 'default',
-      startDate: startDate.toISOString().split('T')[0],
-      endDate: endDate.toISOString().split('T')[0],
-      listingId: listing.id,
-    }],
-    host: {
-      id: userId,
-      name: 'Current User',
-      avatar: '',
-      tokens: 0,
+  // Fetch the complete listing with relations for proper transformation
+  const completeListing = await prisma.listing.findUnique({
+    where: { id: listing.id },
+    include: {
+      host: true,
+      availability: true,
     },
-    createdAt: listing.createdAt.toISOString(),
-    updatedAt: listing.updatedAt.toISOString(),
-  };
+  });
+
+  if (!completeListing) {
+    throw new Error('Failed to retrieve created listing');
+  }
+
+  return transformListing(completeListing);
 }
 
 // User profile actions
@@ -260,27 +186,7 @@ export async function getUserById(id: string): Promise<User | null> {
   
   if (!user) return null;
   
-  return {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    avatar: user.avatar || '',
-    tokens: user.tokens || 0,
-    location: user.location || '',
-    bio: user.bio || '',
-    phone: user.phone || '',
-    joinDate: user.createdAt.toISOString(),
-    listings: user.listings.map(listing => ({
-      id: listing.id,
-      title: listing.title,
-      // We'll fetch full listing details separately when needed
-    })) as any[],
-    bookings: user.bookings.map(booking => ({
-      id: booking.id,
-      listingId: booking.listingId,
-      // We'll fetch full booking details separately when needed
-    })) as any[],
-  };
+  return transformUser(user);
 }
 
 export async function updateUserProfile(
@@ -344,7 +250,7 @@ export async function updateListingImages(data: {
   const updatedListing = await prisma.listing.update({
     where: { id: data.id },
     data: {
-      images: JSON.stringify(data.images),
+      images: safeStringifyJSON(data.images),
       updatedAt: new Date(),
     },
     include: {
@@ -357,29 +263,7 @@ export async function updateListingImages(data: {
   revalidatePath(`/listing/${data.id}`);
   revalidatePath(`/dashboard/listings/${data.id}`);
 
-  // Format the listing for return
-  return {
-    id: updatedListing.id,
-    title: updatedListing.title,
-    description: updatedListing.description,
-    location: updatedListing.location,
-    price: updatedListing.price,
-    images: JSON.parse(updatedListing.images),
-    amenities: JSON.parse(updatedListing.amenities),
-    host: {
-      id: updatedListing.host.id,
-      name: updatedListing.host.name,
-      avatar: updatedListing.host.avatar || '',
-      tokens: updatedListing.host.tokens || 0,
-    },
-    availability: updatedListing.availability.map(avail => ({
-      id: avail.id,
-      startDate: avail.startDate.toISOString().split('T')[0],
-      endDate: avail.endDate.toISOString().split('T')[0],
-    })),
-    createdAt: updatedListing.createdAt.toISOString(),
-    updatedAt: updatedListing.updatedAt.toISOString(),
-  };
+  return transformListing(updatedListing);
 }
 
 // Update a listing
@@ -417,7 +301,7 @@ export async function updateListing(data: {
       description: data.description,
       location: data.location,
       price: data.price,
-      amenities: JSON.stringify(data.amenities),
+      amenities: safeStringifyJSON(data.amenities),
       updatedAt: new Date(),
     },
     include: {
@@ -430,51 +314,33 @@ export async function updateListing(data: {
   revalidatePath(`/listing/${data.id}`);
   revalidatePath(`/dashboard/listings/${data.id}`);
   
-  // Format the listing for return
-  return {
-    id: updatedListing.id,
-    title: updatedListing.title,
-    description: updatedListing.description,
-    location: updatedListing.location,
-    price: updatedListing.price,
-    images: JSON.parse(updatedListing.images),
-    amenities: JSON.parse(updatedListing.amenities),
-    host: {
-      id: updatedListing.host.id,
-      name: updatedListing.host.name,
-      avatar: updatedListing.host.avatar || '',
-      tokens: updatedListing.host.tokens || 0,
-    },
-    availability: updatedListing.availability.map(avail => ({
-      id: avail.id,
-      startDate: avail.startDate.toISOString().split('T')[0],
-      endDate: avail.endDate.toISOString().split('T')[0],
-    })),
-    createdAt: updatedListing.createdAt.toISOString(),
-    updatedAt: updatedListing.updatedAt.toISOString(),
-  };
+  return transformListing(updatedListing);
 }
 
 // Get bookings for a listing
-export async function getBookingsForListing(listingId: string) {
+export async function getBookingsForListing(listingId: string): Promise<Booking[]> {
   const { userId } = auth();
-  
+
   if (!userId) {
     throw new Error('Unauthorized');
   }
-  
+
   // Verify that the listing belongs to the current user
   const listing = await prisma.listing.findUnique({
     where: {
       id: listingId,
       hostId: userId,
     },
+    include: {
+      host: true,
+      availability: true,
+    },
   });
-  
+
   if (!listing) {
     throw new Error('Listing not found or you do not have permission to access it');
   }
-  
+
   // Get all bookings for this listing
   const bookings = await prisma.booking.findMany({
     where: {
@@ -482,27 +348,19 @@ export async function getBookingsForListing(listingId: string) {
     },
     include: {
       user: true,
+      listing: {
+        include: {
+          host: true,
+          availability: true,
+        },
+      },
     },
     orderBy: {
       checkIn: 'asc',
     },
   });
-  
-  return bookings.map(booking => ({
-    id: booking.id,
-    listingId: booking.listingId,
-    userId: booking.userId,
-    checkIn: booking.checkIn.toISOString().split('T')[0],
-    checkOut: booking.checkOut.toISOString().split('T')[0],
-    status: booking.status,
-    tokensEarned: booking.tokensEarned,
-    createdAt: booking.createdAt.toISOString(),
-    user: {
-      id: booking.user.id,
-      name: booking.user.name,
-      avatar: booking.user.avatar || '',
-    },
-  }));
+
+  return bookings.map(booking => transformBooking(booking));
 }
 
 // Get all listings for the current user
@@ -526,28 +384,7 @@ export async function getUserListings(): Promise<Listing[]> {
     },
   });
   
-  return listings.map(listing => ({
-    id: listing.id,
-    title: listing.title,
-    description: listing.description,
-    location: listing.location,
-    price: listing.price,
-    images: JSON.parse(listing.images),
-    amenities: JSON.parse(listing.amenities),
-    host: {
-      id: listing.host.id,
-      name: listing.host.name,
-      avatar: listing.host.avatar || '',
-      tokens: listing.host.tokens || 0,
-    },
-    availability: listing.availability.map(avail => ({
-      id: avail.id,
-      startDate: avail.startDate.toISOString().split('T')[0],
-      endDate: avail.endDate.toISOString().split('T')[0],
-    })),
-    createdAt: listing.createdAt.toISOString(),
-    updatedAt: listing.updatedAt.toISOString(),
-  }));
+  return listings.map(listing => transformListing(listing));
 }
 
 // Get the number of bookings for a specific listing
@@ -578,4 +415,234 @@ export async function getBookingsCountForListing(listingId: string): Promise<num
   });
   
   return bookingsCount;
+}
+
+// Get a single booking by ID
+export async function getBookingById(bookingId: string): Promise<Booking | null> {
+  const { userId } = auth();
+
+  if (!userId) {
+    throw new Error('Unauthorized');
+  }
+
+  // Get the booking and verify access
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: {
+      user: true,
+      listing: {
+        include: {
+          host: true,
+          availability: true,
+        },
+      },
+    },
+  });
+
+  if (!booking) {
+    return null;
+  }
+
+  // Verify that the user is either the booking owner or the listing host
+  if (booking.userId !== userId && booking.listing.hostId !== userId) {
+    throw new Error('You do not have permission to access this booking');
+  }
+
+  return transformBooking(booking);
+}
+
+// Get a single booking by ID with detailed information
+export async function getBookingWithDetails(bookingId: string): Promise<BookingWithDetails | null> {
+  const { userId } = auth();
+
+  if (!userId) {
+    throw new Error('Unauthorized');
+  }
+
+  // Get the booking and verify access
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: {
+      user: true,
+      listing: {
+        include: {
+          host: true,
+          availability: true,
+        },
+      },
+    },
+  });
+
+  if (!booking) {
+    return null;
+  }
+
+  // Verify that the user is either the booking owner or the listing host
+  if (booking.userId !== userId && booking.listing.hostId !== userId) {
+    throw new Error('You do not have permission to access this booking');
+  }
+
+  return transformBookingWithDetails(booking);
+}
+
+// Create a new booking
+export async function createBooking(data: {
+  listingId: string;
+  startDate: string;
+  endDate: string;
+  totalPrice: number;
+}): Promise<Booking> {
+  const { userId } = auth();
+
+  if (!userId) {
+    throw new Error('Unauthorized');
+  }
+
+  // Verify the listing exists and is available
+  const listing = await prisma.listing.findUnique({
+    where: { id: data.listingId },
+    include: {
+      host: true,
+      availability: true,
+    },
+  });
+
+  if (!listing) {
+    throw new Error('Listing not found');
+  }
+
+  // Check if the dates are available
+  const startDate = new Date(data.startDate);
+  const endDate = new Date(data.endDate);
+
+  // Check for overlapping bookings
+  const overlappingBooking = await prisma.booking.findFirst({
+    where: {
+      listingId: data.listingId,
+      OR: [
+        {
+          checkIn: { lte: startDate },
+          checkOut: { gt: startDate },
+        },
+        {
+          checkIn: { lt: endDate },
+          checkOut: { gte: endDate },
+        },
+        {
+          checkIn: { gte: startDate },
+          checkOut: { lte: endDate },
+        },
+      ],
+      status: { not: 'cancelled' },
+    },
+  });
+
+  if (overlappingBooking) {
+    throw new Error('The selected dates are not available');
+  }
+
+  // Create the booking
+  const booking = await prisma.booking.create({
+    data: {
+      userId,
+      listingId: data.listingId,
+      checkIn: startDate,
+      checkOut: endDate,
+      tokensEarned: data.totalPrice,
+      status: 'pending',
+    },
+    include: {
+      user: true,
+      listing: {
+        include: {
+          host: true,
+          availability: true,
+        },
+      },
+    },
+  });
+
+  // Revalidate relevant pages
+  revalidatePath('/dashboard/bookings');
+  revalidatePath(`/dashboard/listings/${data.listingId}`);
+
+  return transformBooking(booking);
+}
+
+// Update booking status
+export async function updateBookingStatus(bookingId: string, status: string): Promise<Booking> {
+  const { userId } = auth();
+
+  if (!userId) {
+    throw new Error('Unauthorized');
+  }
+
+  // Get the booking and verify access
+  const existingBooking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: {
+      listing: true,
+    },
+  });
+
+  if (!existingBooking) {
+    throw new Error('Booking not found');
+  }
+
+  // Verify that the user is either the booking owner or the listing host
+  if (existingBooking.userId !== userId && existingBooking.listing.hostId !== userId) {
+    throw new Error('You do not have permission to update this booking');
+  }
+
+  // Update the booking
+  const updatedBooking = await prisma.booking.update({
+    where: { id: bookingId },
+    data: {
+      status,
+      updatedAt: new Date(),
+    },
+    include: {
+      user: true,
+      listing: {
+        include: {
+          host: true,
+          availability: true,
+        },
+      },
+    },
+  });
+
+  // Revalidate relevant pages
+  revalidatePath('/dashboard/bookings');
+  revalidatePath(`/dashboard/bookings/${bookingId}`);
+  revalidatePath(`/dashboard/listings/${updatedBooking.listingId}`);
+
+  return transformBooking(updatedBooking);
+}
+
+// Get all bookings for the current user
+export async function getUserBookings(): Promise<Booking[]> {
+  const { userId } = auth();
+
+  if (!userId) {
+    throw new Error('Unauthorized');
+  }
+
+  const bookings = await prisma.booking.findMany({
+    where: { userId },
+    include: {
+      user: true,
+      listing: {
+        include: {
+          host: true,
+          availability: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+
+  return bookings.map(booking => transformBooking(booking));
 }

@@ -166,9 +166,11 @@ export default function FilterBar({ initialFilters }: FilterBarProps) {
               defaultMonth={dateRange.from}
               selected={dateRange}
               onSelect={(range) => {
-                setDateRange(range);
-                if (range.from && range.to) {
-                  setTimeout(applyFilters, 100);
+                if (range) {
+                  setDateRange({
+                    from: range.from,
+                    to: range.to || undefined
+                  });
                 }
               }}
               numberOfMonths={2}
