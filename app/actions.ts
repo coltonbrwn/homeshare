@@ -15,6 +15,9 @@ import { auth } from '@clerk/nextjs';
 
 // Listings
 export async function getListings(): Promise<Listing[]> {
+
+  console.log("DATABASE URL :::::")
+  console.log(process.env.DATABASE_URL)
   const listings = await prisma.listing.findMany({
     include: {
       host: true,
