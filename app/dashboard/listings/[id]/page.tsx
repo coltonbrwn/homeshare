@@ -7,18 +7,88 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Home, Calendar, BookOpen, Camera } from 'lucide-react';
-import { getListingById, getBookingsCountForListing } from '@/app/actions';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ArrowLeft, Home, Calendar, Camera, Clock, CheckCircle, XCircle, User, PenTool } from 'lucide-react';
+import { getListingById, getBookingsCountForListing, getBookingsForListing } from '@/app/actions';
 import AvailabilityManager from '@/components/AvailabilityManager';
 import AvailabilityCalendar from '@/components/AvailabilityCalendar';
 import ListingEditForm from '@/components/ListingEditForm';
 import PhotoUploadManager from '@/components/PhotoUploadManager';
+import { format } from 'date-fns';
+
+// BookingCard component for displaying individual bookings
+function BookingCard({ booking }: { booking: any }) {
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'confirmed': return 'bg-green-100 text-green-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      case 'completed': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'confirmed': return <CheckCircle className="h-4 w-4" />;
+      case 'pending': return <Clock className="h-4 w-4" />;
+      case 'cancelled': return <XCircle className="h-4 w-4" />;
+      case 'completed': return <CheckCircle className="h-4 w-4" />;
+      default: return <Clock className="h-4 w-4" />;
+    }
+  };
+
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <div className="flex justify-between items-start mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <User className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h4 className="font-semibold">{booking.user.name}</h4>
+              <p className="text-sm text-muted-foreground">{booking.user.email}</p>
+            </div>
+          </div>
+          <Badge className={`${getStatusColor(booking.status)} flex items-center gap-1`}>
+            {getStatusIcon(booking.status)}
+            {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <p className="text-sm text-muted-foreground">Check-in</p>
+            <p className="font-medium">{format(new Date(booking.startDate), 'MMM d, yyyy')}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Check-out</p>
+            <p className="font-medium">{format(new Date(booking.endDate), 'MMM d, yyyy')}</p>
+          </div>
+        </div>
+
+        <div className="flex justify-between items-center pt-4 border-t">
+          <div className="flex items-center gap-1">
+            <PenTool className="h-4 w-4 text-primary" />
+            <span className="font-medium">{booking.totalPrice} tokens</span>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            Booked {format(new Date(booking.createdAt), 'MMM d, yyyy')}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 function ListingManagementContent({ id }: { id: string }) {
   const [listing, setListing] = useState<any>(null);
   const [bookingsCount, setBookingsCount] = useState<number>(0);
+  const [bookings, setBookings] = useState<any[]>([]);
   const [isEditingPhotos, setIsEditingPhotos] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -50,6 +120,18 @@ function ListingManagementContent({ id }: { id: string }) {
     setIsEditingPhotos(false);
   };
 
+  const fetchBookings = async () => {
+    setBookingsLoading(true);
+    try {
+      const bookingsData = await getBookingsForListing(id);
+      setBookings(bookingsData);
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
+    } finally {
+      setBookingsLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -63,12 +145,26 @@ function ListingManagementContent({ id }: { id: string }) {
     return null;
   }
 
+  // Categorize bookings into past and upcoming
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const upcomingBookings = bookings.filter(booking => {
+    const checkInDate = new Date(booking.startDate);
+    return checkInDate >= today;
+  });
+
+  const pastBookings = bookings.filter(booking => {
+    const checkOutDate = new Date(booking.endDate);
+    return checkOutDate < today;
+  });
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
-      <div className="flex justify-between items-start mb-8">
-        <Button 
-          variant="ghost" 
-          className="mb-4" 
+      <div className="mb-8">
+        <Button
+          variant="ghost"
+          className="mb-4"
           asChild
         >
           <Link href="/dashboard/listings">
@@ -76,19 +172,6 @@ function ListingManagementContent({ id }: { id: string }) {
             Back to My Listings
           </Link>
         </Button>
-        
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <BookOpen className="h-4 w-4" />
-            <span>{bookingsCount} bookings</span>
-          </div>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/dashboard/bookings">
-              <Calendar className="mr-2 h-4 w-4" />
-              View Bookings
-            </Link>
-          </Button>
-        </div>
       </div>
       
       <div className="flex flex-col md:flex-row gap-8 mb-8">
@@ -137,9 +220,22 @@ function ListingManagementContent({ id }: { id: string }) {
           </div>
         </div>
       </div>
-      
-      {/* Availability Management Section */}
-      <h2 className="text-2xl font-bold mb-6">Manage Your Listing</h2>
+
+      {/* Tabs for Listing Management and Bookings */}
+      <Tabs defaultValue="manage" className="w-full">
+        <TabsList className="mb-6">
+          <TabsTrigger value="manage" className="flex items-center">
+            <Home className="h-4 w-4 mr-2" />
+            Manage Listing
+          </TabsTrigger>
+          <TabsTrigger value="bookings" className="flex items-center" onClick={fetchBookings}>
+            <Calendar className="h-4 w-4 mr-2" />
+            Bookings ({bookingsCount})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="manage">
+          <h2 className="text-2xl font-bold mb-6">Manage Your Listing</h2>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Availability Manager */}
@@ -173,11 +269,90 @@ function ListingManagementContent({ id }: { id: string }) {
         </Card>
       </div>
       
-      {/* Edit Listing Form */}
-      <div className="mt-8">
-        <h2 className="text-2xl font-bold mb-6">Edit Listing Details</h2>
-        <ListingEditForm listing={listing} />
-      </div>
+          {/* Edit Listing Form */}
+          <div className="mt-8">
+            <h2 className="text-2xl font-bold mb-6">Edit Listing Details</h2>
+            <ListingEditForm listing={listing} />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="bookings">
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">Property Bookings</h2>
+              <div className="text-sm text-muted-foreground">
+                Total: {bookingsCount} booking{bookingsCount !== 1 ? 's' : ''}
+              </div>
+            </div>
+
+            {bookingsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                  <p className="text-muted-foreground">Loading bookings...</p>
+                </div>
+              </div>
+            ) : bookings.length === 0 ? (
+              <Card>
+                <CardContent className="pt-6 text-center py-12">
+                  <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No bookings yet</h3>
+                  <p className="text-muted-foreground">
+                    Your property hasn&apos;t received any bookings yet. Make sure your availability is set up correctly.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Tabs defaultValue="upcoming" className="w-full">
+                <TabsList className="mb-6">
+                  <TabsTrigger value="upcoming" className="flex items-center">
+                    <Clock className="h-4 w-4 mr-2" />
+                    Upcoming ({upcomingBookings.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="past" className="flex items-center">
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Past ({pastBookings.length})
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="upcoming">
+                  <div className="space-y-4">
+                    {upcomingBookings.length === 0 ? (
+                      <Card>
+                        <CardContent className="pt-6 text-center py-8">
+                          <Clock className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                          <p className="text-muted-foreground">No upcoming bookings</p>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      upcomingBookings.map((booking) => (
+                        <BookingCard key={booking.id} booking={booking} />
+                      ))
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="past">
+                  <div className="space-y-4">
+                    {pastBookings.length === 0 ? (
+                      <Card>
+                        <CardContent className="pt-6 text-center py-8">
+                          <CheckCircle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                          <p className="text-muted-foreground">No past bookings</p>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      pastBookings.map((booking) => (
+                        <BookingCard key={booking.id} booking={booking} />
+                      ))
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Photo Upload Manager Modal */}
       {isEditingPhotos && (

@@ -83,9 +83,11 @@ export default function BookingForm({ listingId, listingPrice, availability }: B
     );
   };
   
-  // Function to disable dates that are not available
+  // Function to disable dates that are not available or before tomorrow
   const disableDate = (date: Date) => {
-    return !isDateAvailable(date);
+    const tomorrow = addDays(new Date(), 1);
+    // Disable if date is before tomorrow or not available
+    return isBefore(date, tomorrow) || !isDateAvailable(date);
   };
   
   // Function to check if a date range is valid (all dates are available)
@@ -185,17 +187,21 @@ export default function BookingForm({ listingId, listingPrice, availability }: B
   };
   
   // Get the earliest and latest availability dates for display
-  const earliestDate = availabilityPeriods.length > 0 
-    ? availabilityPeriods.reduce((earliest, period) => 
-        period.startDate < earliest ? period.startDate : earliest, 
+  const earliestAvailableDate = availabilityPeriods.length > 0
+    ? availabilityPeriods.reduce((earliest, period) =>
+        period.startDate < earliest ? period.startDate : earliest,
         availabilityPeriods[0].startDate)
     : new Date();
-    
+
   const latestDate = availabilityPeriods.length > 0
-    ? availabilityPeriods.reduce((latest, period) => 
-        period.endDate > latest ? period.endDate : latest, 
+    ? availabilityPeriods.reduce((latest, period) =>
+        period.endDate > latest ? period.endDate : latest,
         availabilityPeriods[0].endDate)
     : new Date();
+
+  // Set minimum booking date to tomorrow
+  const tomorrow = addDays(new Date(), 1);
+  const minBookingDate = earliestAvailableDate > tomorrow ? earliestAvailableDate : tomorrow;
   
   // Custom modifiers for the calendar to highlight availability
   const modifiers = {
@@ -214,7 +220,7 @@ export default function BookingForm({ listingId, listingPrice, availability }: B
       <div className="text-sm text-muted-foreground mb-2">
         {availabilityPeriods.length > 0 ? (
           <>
-            Available from {format(earliestDate, 'MMM d, yyyy')} to {format(latestDate, 'MMM d, yyyy')}
+            Available from {format(earliestAvailableDate, 'MMM d, yyyy')} to {format(latestDate, 'MMM d, yyyy')}
             {availabilityPeriods.length > 1 && ` (${availabilityPeriods.length} periods)`}
           </>
         ) : (
@@ -260,14 +266,14 @@ export default function BookingForm({ listingId, listingPrice, availability }: B
           <Calendar
             initialFocus
             mode="range"
-            defaultMonth={availabilityPeriods.length > 0 ? earliestDate : new Date()}
+            defaultMonth={new Date()}
             selected={dateRange}
             onSelect={handleDateSelect}
             numberOfMonths={2}
             disabled={disableDate}
             modifiers={modifiers}
             modifiersStyles={modifiersStyles}
-            fromDate={earliestDate}
+            fromDate={minBookingDate}
             toDate={latestDate}
           />
         </PopoverContent>

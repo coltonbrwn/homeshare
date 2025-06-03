@@ -765,3 +765,43 @@ export async function getUserBookings(): Promise<Booking[]> {
 
   return bookings.map(booking => transformBooking(booking));
 }
+
+// Get upcoming bookings for all listings owned by the current user (as host)
+export async function getHostUpcomingBookings(): Promise<Booking[]> {
+  const { userId } = auth();
+
+  if (!userId) {
+    throw new Error('Unauthorized');
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const bookings = await prisma.booking.findMany({
+    where: {
+      listing: {
+        hostId: userId,
+      },
+      checkIn: {
+        gte: today,
+      },
+      status: {
+        not: 'cancelled',
+      },
+    },
+    include: {
+      user: true,
+      listing: {
+        include: {
+          host: true,
+          availability: true,
+        },
+      },
+    },
+    orderBy: {
+      checkIn: 'asc',
+    },
+  });
+
+  return bookings.map(booking => transformBooking(booking));
+}
